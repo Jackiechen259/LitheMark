@@ -36,6 +36,15 @@
   margin-top: 0;
 }
 
+.markdown-block {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--estimated-block-height);
+}
+
+.markdown-block [id] {
+  scroll-margin-top: 1rem;
+}
+
 .markdown-document h1,
 .markdown-document h2,
 .markdown-document h3,

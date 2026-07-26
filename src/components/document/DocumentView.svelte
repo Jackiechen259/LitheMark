@@ -4,6 +4,7 @@
   import { openExternalUrl } from "../../features/documents/document-service";
   import type { DocumentTab } from "../../features/documents/document-types";
   import { normalizeAppError } from "../../lib/errors";
+  import MarkdownBlock from "./MarkdownBlock.svelte";
 
   let {
     tab,
@@ -25,9 +26,14 @@
     if (!anchor || !event.currentTarget || !(event.currentTarget instanceof Element)) return;
     if (!event.currentTarget.contains(anchor)) return;
 
-    event.preventDefault();
     const href = anchor.getAttribute("href");
     if (!href) return;
+    event.preventDefault();
+
+    if (href.startsWith("#")) {
+      globalThis.document.getElementById(href.slice(1))?.scrollIntoView({ block: "start" });
+      return;
+    }
 
     try {
       await openExternalUrl(href);
@@ -66,6 +72,8 @@
 
 <div class="document-scroll" use:restoreScroll onscroll={handleScroll}>
   <article class="markdown-document" aria-label={tab.metadata.name} use:interceptLinks>
-    {@html tab.html}
+    {#each tab.blocks as block (block.id)}
+      <MarkdownBlock {block} />
+    {/each}
   </article>
 </div>

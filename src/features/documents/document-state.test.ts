@@ -14,9 +14,21 @@ function result(id: string, name: string): OpenDocumentResult {
       encoding: "UTF-8",
       lineCount: 1,
       mode: "full",
+      blockCount: 1,
       revision: 1,
     },
-    html: `<p>${name}</p>`,
+    initialBlocks: [
+      {
+        id: 0,
+        kind: "paragraph",
+        sourceStart: 0,
+        sourceEnd: name.length,
+        estimatedHeight: 40,
+        html: `<p>${name}</p>`,
+      },
+    ],
+    headings: [],
+    indexComplete: true,
     reused: false,
   };
 }

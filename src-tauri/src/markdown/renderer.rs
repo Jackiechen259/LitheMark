@@ -17,6 +17,13 @@ pub fn render_safe_markdown(source: &str) -> String {
     sanitize_html(&rendered)
 }
 
+#[must_use]
+pub fn with_heading_id(html: String, level: u8, slug: &str) -> String {
+    let opening = format!("<h{level}>");
+    let replacement = format!("<h{level} id=\"{slug}\">");
+    html.replacen(&opening, &replacement, 1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::render_safe_markdown;

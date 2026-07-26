@@ -3,7 +3,9 @@ use tauri::State;
 use crate::document::loader::{canonicalize_supported_path, load_canonical};
 use crate::document::manager::DocumentManager;
 use crate::errors::AppError;
-use crate::types::{DocumentId, DocumentMetadataDto, OpenDocumentResult};
+use crate::types::{
+    BlockBatchDto, DocumentId, DocumentMetadataDto, HeadingDto, OpenDocumentResult,
+};
 
 #[tauri::command]
 pub async fn open_document(
@@ -51,6 +53,28 @@ pub fn get_document_metadata(
     manager.metadata(document_id)
 }
 
+#[tauri::command]
+pub fn get_blocks(
+    manager: State<'_, DocumentManager>,
+    document_id: DocumentId,
+    start: usize,
+    count: usize,
+    revision: u64,
+) -> Result<BlockBatchDto, AppError> {
+    manager
+        .get(document_id)?
+        .blocks(start, count.min(200), revision)
+}
+
+#[tauri::command]
+pub fn get_headings(
+    manager: State<'_, DocumentManager>,
+    document_id: DocumentId,
+    revision: u64,
+) -> Result<Vec<HeadingDto>, AppError> {
+    manager.get(document_id)?.headings(revision)
+}
+
 async fn open_with_manager(
     manager: &DocumentManager,
     path: String,
@@ -69,6 +93,7 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
+    use crate::markdown::parse_markdown_blocks;
 
     #[test]
     fn loader_opens_utf8_markdown_and_returns_safe_html() {
@@ -92,8 +117,19 @@ mod tests {
         assert!(result.is_ok());
         if let Ok(document) = result {
             assert!(document.name.starts_with("lithemark-phase2-"));
-            assert!(document.html.contains("<h1>Test</h1>"));
-            assert!(!document.html.contains("<script"));
+            let parsed = parse_markdown_blocks(&document.source);
+            assert!(
+                parsed.blocks[0]
+                    .html
+                    .as_deref()
+                    .is_some_and(|html| html.contains("<h1 id=\"test\">Test</h1>"))
+            );
+            assert!(parsed.blocks.iter().all(|block| {
+                block
+                    .html
+                    .as_deref()
+                    .is_none_or(|html| !html.contains("<script"))
+            }));
             assert_eq!(document.encoding, "UTF-8");
         }
     }

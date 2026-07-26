@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import type { DocumentMetadata, OpenDocumentResult } from "./document-types";
+import type { BlockBatch, DocumentMetadata, Heading, OpenDocumentResult } from "./document-types";
 
 export async function selectMarkdownFiles(): Promise<string[]> {
   const selected = await open({
@@ -33,6 +33,19 @@ export function reloadDocument(documentId: string): Promise<OpenDocumentResult> 
 
 export function getDocumentMetadata(documentId: string): Promise<DocumentMetadata> {
   return invoke<DocumentMetadata>("get_document_metadata", { documentId });
+}
+
+export function getBlocks(
+  documentId: string,
+  start: number,
+  count: number,
+  revision: number,
+): Promise<BlockBatch> {
+  return invoke<BlockBatch>("get_blocks", { documentId, start, count, revision });
+}
+
+export function getHeadings(documentId: string, revision: number): Promise<Heading[]> {
+  return invoke<Heading[]>("get_headings", { documentId, revision });
 }
 
 export function openExternalUrl(url: string): Promise<void> {

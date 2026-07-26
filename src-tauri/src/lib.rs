@@ -24,6 +24,8 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::document::close_document,
             commands::document::reload_document,
             commands::document::get_document_metadata,
+            commands::document::get_blocks,
+            commands::document::get_headings,
             commands::system::open_external_url
         ])
         .on_window_event(|window, event| {

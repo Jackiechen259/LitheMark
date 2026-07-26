@@ -10,13 +10,17 @@ export class AppState {
     const existing = this.tabs.find((tab) => tab.documentId === result.document.id);
     if (existing) {
       existing.metadata = result.document;
-      existing.html = result.html;
+      existing.blocks = result.initialBlocks;
+      existing.headings = result.headings;
+      existing.indexComplete = result.indexComplete;
       existing.status = "ready";
     } else {
       this.tabs.push({
         documentId: result.document.id,
         metadata: result.document,
-        html: result.html,
+        blocks: result.initialBlocks,
+        headings: result.headings,
+        indexComplete: result.indexComplete,
         status: "ready",
         scrollTop: 0,
         outlineExpanded: true,
@@ -53,5 +57,11 @@ export class AppState {
   updateScroll(documentId: string, scrollTop: number) {
     const tab = this.tabs.find((candidate) => candidate.documentId === documentId);
     if (tab) tab.scrollTop = scrollTop;
+  }
+
+  sidebarOpen = $state(true);
+
+  toggleSidebar() {
+    this.sidebarOpen = !this.sidebarOpen;
   }
 }

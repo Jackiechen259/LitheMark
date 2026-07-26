@@ -5,13 +5,19 @@
     title,
     path,
     theme,
+    canShowOutline,
+    outlineOpen,
     onOpen,
+    onToggleOutline,
     onToggleTheme,
   }: {
     title: string;
     path?: string;
     theme: Theme;
+    canShowOutline: boolean;
+    outlineOpen: boolean;
     onOpen: () => void | Promise<void>;
+    onToggleOutline: () => void;
     onToggleTheme: () => void;
   } = $props();
 </script>
@@ -23,6 +29,16 @@
     <span title={path}>{path ?? "Fast, private Markdown reading"}</span>
   </div>
   <div class="toolbar-actions">
+    {#if canShowOutline}
+      <button
+        type="button"
+        class="secondary-button"
+        aria-pressed={outlineOpen}
+        onclick={onToggleOutline}
+      >
+        {outlineOpen ? "Hide outline" : "Show outline"}
+      </button>
+    {/if}
     <button type="button" class="secondary-button" onclick={onToggleTheme}>
       {theme === "light" ? "Dark" : "Light"}
     </button>

@@ -5,6 +5,7 @@
   import ErrorNotice from "../components/common/ErrorNotice.svelte";
   import DocumentLoading from "../components/document/DocumentLoading.svelte";
   import DocumentView from "../components/document/DocumentView.svelte";
+  import OutlinePanel from "../components/outline/OutlinePanel.svelte";
   import AppShell from "../components/shell/AppShell.svelte";
   import TabBar from "../components/shell/TabBar.svelte";
   import Toolbar from "../components/shell/Toolbar.svelte";
@@ -14,7 +15,7 @@
     openDocument,
     selectMarkdownFiles,
   } from "../features/documents/document-service";
-  import type { RecentFile, Theme } from "../features/documents/document-types";
+  import type { Heading, RecentFile, Theme } from "../features/documents/document-types";
   import {
     loadPreferences,
     saveRecentFiles,
@@ -127,6 +128,13 @@
     });
   }
 
+  function jumpToHeading(heading: Heading) {
+    globalThis.document.getElementById(heading.slug)?.scrollIntoView({
+      block: "start",
+      behavior: "smooth",
+    });
+  }
+
   function formatBytes(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -141,7 +149,10 @@
         title={activeTab?.metadata.name ?? "LitheMark"}
         path={activeTab?.metadata.displayPath}
         {theme}
+        canShowOutline={Boolean(activeTab)}
+        outlineOpen={appState.sidebarOpen}
         onOpen={chooseDocuments}
+        onToggleOutline={() => appState.toggleSidebar()}
         onToggleTheme={toggleTheme}
       />
       {#if appState.tabs.length}
@@ -158,15 +169,20 @@
   {#if openingCount > 0 && !activeTab}
     <DocumentLoading />
   {:else if activeTab}
-    <div class="document-stack">
-      {#if errorMessage}
-        <ErrorNotice compact message={errorMessage} onDismiss={() => (errorMessage = "")} />
+    <div class:with-outline={appState.sidebarOpen} class="document-workspace">
+      {#if appState.sidebarOpen}
+        <OutlinePanel headings={activeTab.headings} onSelect={jumpToHeading} />
       {/if}
-      <DocumentView
-        tab={activeTab}
-        onScroll={(scrollTop) => appState.updateScroll(activeTab.documentId, scrollTop)}
-        onExternalError={(message) => (errorMessage = message)}
-      />
+      <div class="document-stack">
+        {#if errorMessage}
+          <ErrorNotice compact message={errorMessage} onDismiss={() => (errorMessage = "")} />
+        {/if}
+        <DocumentView
+          tab={activeTab}
+          onScroll={(scrollTop) => appState.updateScroll(activeTab.documentId, scrollTop)}
+          onExternalError={(message) => (errorMessage = message)}
+        />
+      </div>
     </div>
   {:else if errorMessage}
     <ErrorNotice

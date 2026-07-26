@@ -9,6 +9,8 @@ const service = vi.hoisted(() => ({
   closeDocument: vi.fn(),
   reloadDocument: vi.fn(),
   getDocumentMetadata: vi.fn(),
+  getBlocks: vi.fn(),
+  getHeadings: vi.fn(),
   openExternalUrl: vi.fn(),
 }));
 const preferences = vi.hoisted(() => ({
@@ -31,9 +33,22 @@ function openResult(id: string, name: string, html = "<h1>Hello</h1><p>Safe cont
       encoding: "UTF-8",
       lineCount: 2,
       mode: "full" as const,
+      blockCount: 1,
       revision: 1,
     },
-    html,
+    initialBlocks: [
+      {
+        id: 0,
+        kind: "heading" as const,
+        sourceStart: 0,
+        sourceEnd: 8,
+        estimatedHeight: 64,
+        html,
+        plainText: name,
+      },
+    ],
+    headings: [{ blockId: 0, level: 1, text: name, slug: `heading-${id}` }],
+    indexComplete: true,
     reused: false,
   };
 }

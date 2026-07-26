@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use crate::errors::AppError;
-use crate::markdown::render_safe_markdown;
 
 const MAX_FULL_RENDER_BYTES: u64 = 16 * 1024 * 1024;
 
@@ -15,7 +14,6 @@ pub struct LoadedDocument {
     pub encoding: String,
     pub line_count: usize,
     pub source: String,
-    pub html: String,
 }
 
 pub async fn canonicalize_supported_path(path: String) -> Result<PathBuf, AppError> {
@@ -49,7 +47,6 @@ pub async fn load_canonical(canonical_path: PathBuf) -> Result<LoadedDocument, A
     let source = std::str::from_utf8(source_bytes)
         .map_err(|_| AppError::EncodingFailed)?
         .to_owned();
-    let html = render_safe_markdown(&source);
     let name = canonical_path
         .file_name()
         .and_then(|value| value.to_str())
@@ -70,7 +67,6 @@ pub async fn load_canonical(canonical_path: PathBuf) -> Result<LoadedDocument, A
         encoding: "UTF-8".to_owned(),
         line_count: source.lines().count(),
         source,
-        html,
         canonical_path,
     })
 }

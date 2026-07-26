@@ -273,6 +273,74 @@
   color: var(--text-secondary);
 }
 
+.document-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.document-workspace.with-outline {
+  grid-template-columns: 15rem minmax(0, 1fr);
+}
+
+.outline-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-app);
+}
+
+.outline-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--space-4) var(--space-3) var(--space-2);
+  color: var(--text-secondary);
+  background: var(--surface-app);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.outline-panel nav {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0 var(--space-2) var(--space-4);
+}
+
+.outline-panel button {
+  width: 100%;
+  padding: 0.42rem var(--space-2);
+  padding-left: calc(var(--space-2) + var(--outline-depth) * 0.75rem);
+  overflow: hidden;
+  border: 0;
+  border-radius: 0.4rem;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outline-panel button:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.outline-panel p {
+  margin: var(--space-2) var(--space-4);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
 .document-loading strong {
   color: var(--text-primary);
 }
@@ -328,5 +396,13 @@
   .error-notice {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .document-workspace.with-outline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .document-workspace.with-outline .outline-panel {
+    display: none;
   }
 }

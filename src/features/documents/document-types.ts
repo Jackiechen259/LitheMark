@@ -10,19 +10,61 @@ export interface DocumentMetadata {
   encoding: string;
   lineCount: number;
   mode: "full";
+  blockCount?: number;
   revision: number;
+}
+
+export type BlockKind =
+  | "heading"
+  | "paragraph"
+  | "list"
+  | "block_quote"
+  | "code_block"
+  | "table"
+  | "rule"
+  | "html_block"
+  | "footnote_definition"
+  | "definition_list";
+
+export interface MarkdownBlock {
+  id: number;
+  kind: BlockKind;
+  sourceStart: number;
+  sourceEnd: number;
+  estimatedHeight: number;
+  html?: string;
+  plainText?: string;
+}
+
+export interface Heading {
+  blockId: number;
+  level: number;
+  text: string;
+  slug: string;
 }
 
 export interface OpenDocumentResult {
   document: DocumentMetadata;
-  html: string;
+  initialBlocks: MarkdownBlock[];
+  headings: Heading[];
+  indexComplete: boolean;
   reused: boolean;
+}
+
+export interface BlockBatch {
+  documentId: string;
+  revision: number;
+  start: number;
+  total: number;
+  blocks: MarkdownBlock[];
 }
 
 export interface DocumentTab {
   documentId: string;
   metadata: DocumentMetadata;
-  html: string;
+  blocks: MarkdownBlock[];
+  headings: Heading[];
+  indexComplete: boolean;
   status: TabStatus;
   scrollTop: number;
   outlineExpanded: boolean;

@@ -93,7 +93,6 @@ mod tests {
             encoding: "UTF-8".to_owned(),
             line_count: 1,
             source: "# Test".to_owned(),
-            html: "<h1>Test</h1>".to_owned(),
         }
     }
 
