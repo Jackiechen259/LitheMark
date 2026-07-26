@@ -1,12 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import type { RenderedDocument } from "./document-types";
+import type { DocumentMetadata, OpenDocumentResult } from "./document-types";
 
-export async function selectMarkdownFile(): Promise<string | null> {
+export async function selectMarkdownFiles(): Promise<string[]> {
   const selected = await open({
     directory: false,
-    multiple: false,
+    multiple: true,
     filters: [
       {
         name: "Markdown",
@@ -15,11 +15,24 @@ export async function selectMarkdownFile(): Promise<string | null> {
     ],
   });
 
-  return typeof selected === "string" ? selected : null;
+  if (typeof selected === "string") return [selected];
+  return Array.isArray(selected) ? selected : [];
 }
 
-export function openDocument(path: string): Promise<RenderedDocument> {
-  return invoke<RenderedDocument>("open_document", { path });
+export function openDocument(path: string): Promise<OpenDocumentResult> {
+  return invoke<OpenDocumentResult>("open_document", { path });
+}
+
+export function closeDocument(documentId: string): Promise<void> {
+  return invoke("close_document", { documentId });
+}
+
+export function reloadDocument(documentId: string): Promise<OpenDocumentResult> {
+  return invoke<OpenDocumentResult>("reload_document", { documentId });
+}
+
+export function getDocumentMetadata(documentId: string): Promise<DocumentMetadata> {
+  return invoke<DocumentMetadata>("get_document_metadata", { documentId });
 }
 
 export function openExternalUrl(url: string): Promise<void> {

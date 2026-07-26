@@ -1,15 +1,21 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
+
   import { openExternalUrl } from "../../features/documents/document-service";
-  import type { RenderedDocument } from "../../features/documents/document-types";
+  import type { DocumentTab } from "../../features/documents/document-types";
   import { normalizeAppError } from "../../lib/errors";
 
   let {
-    document: markdownDocument,
+    tab,
+    onScroll,
     onExternalError,
   }: {
-    document: RenderedDocument;
+    tab: DocumentTab;
+    onScroll: (scrollTop: number) => void;
     onExternalError: (message: string) => void;
   } = $props();
+
+  let scrollFrame: number | null = null;
 
   async function handleContentClick(event: MouseEvent) {
     const target = event.target;
@@ -38,10 +44,28 @@
       },
     };
   }
+
+  function restoreScroll(node: HTMLElement) {
+    node.scrollTop = tab.scrollTop;
+  }
+
+  function handleScroll(event: Event) {
+    const element = event.currentTarget;
+    if (!(element instanceof HTMLElement) || scrollFrame !== null) return;
+
+    scrollFrame = requestAnimationFrame(() => {
+      onScroll(element.scrollTop);
+      scrollFrame = null;
+    });
+  }
+
+  onDestroy(() => {
+    if (scrollFrame !== null) cancelAnimationFrame(scrollFrame);
+  });
 </script>
 
-<div class="document-scroll">
-  <article class="markdown-document" aria-label={markdownDocument.name} use:interceptLinks>
-    {@html markdownDocument.html}
+<div class="document-scroll" use:restoreScroll onscroll={handleScroll}>
+  <article class="markdown-document" aria-label={tab.metadata.name} use:interceptLinks>
+    {@html tab.html}
   </article>
 </div>

@@ -8,10 +8,13 @@
 }
 
 .app-header {
-  min-height: 4rem;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-elevated);
   backdrop-filter: blur(16px);
+}
+
+.header-stack {
+  min-width: 0;
 }
 
 .toolbar {
@@ -51,7 +54,8 @@
 }
 
 .empty-state {
-  width: min(100%, 30rem);
+  width: min(calc(100% - 4rem), 34rem);
+  max-height: calc(100% - 4rem);
   margin: var(--space-8);
   padding: 3.5rem var(--space-8);
   border: 1px solid var(--border-subtle);
@@ -59,6 +63,7 @@
   background: var(--surface-document);
   box-shadow: var(--shadow-soft);
   text-align: center;
+  overflow-y: auto;
 }
 
 .empty-state-icon {
@@ -114,6 +119,116 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.tab-bar {
+  display: flex;
+  min-width: 0;
+  padding: 0 var(--space-3);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  min-width: 7rem;
+  max-width: 14rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 0.55rem 0.55rem 0 0;
+  color: var(--text-secondary);
+}
+
+.tab-item.active {
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+  background: var(--surface-document);
+}
+
+.tab-item > [role="tab"] {
+  min-width: 0;
+  flex: 1;
+  padding: 0.45rem 0.4rem 0.5rem 0.7rem;
+  overflow: hidden;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.tab-item > [role="tab"] span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-close {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-right: 0.25rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.4rem;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.tab-close:hover,
+.tab-item:not(.active):hover {
+  background: var(--surface-hover);
+}
+
+.recent-files {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-8);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.recent-files h2 {
+  margin: 0 0 var(--space-2);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recent-files button {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  overflow: hidden;
+  border: 0;
+  border-radius: 0.55rem;
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.recent-files button:hover {
+  background: var(--surface-hover);
+}
+
+.recent-files strong,
+.recent-files span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-files span {
+  margin-top: 0.15rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
 }
 
 .primary-button,

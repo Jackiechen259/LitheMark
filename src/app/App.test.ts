@@ -1,45 +1,86 @@
-import { fireEvent, render, screen } from "@testing-library/svelte";
+import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.svelte";
 
 const service = vi.hoisted(() => ({
-  selectMarkdownFile: vi.fn(),
+  selectMarkdownFiles: vi.fn(),
   openDocument: vi.fn(),
+  closeDocument: vi.fn(),
+  reloadDocument: vi.fn(),
+  getDocumentMetadata: vi.fn(),
   openExternalUrl: vi.fn(),
+}));
+const preferences = vi.hoisted(() => ({
+  loadPreferences: vi.fn(),
+  saveTheme: vi.fn(),
+  saveRecentFiles: vi.fn(),
 }));
 
 vi.mock("../features/documents/document-service", () => service);
+vi.mock("../features/settings/settings-service", () => preferences);
 
-describe("App", () => {
-  beforeEach(() => {
-    service.selectMarkdownFile.mockReset();
-    service.openDocument.mockReset();
-    service.openExternalUrl.mockReset();
-  });
-
-  it("opens and displays a rendered Markdown document", async () => {
-    service.selectMarkdownFile.mockResolvedValue("C:\\notes\\readme.md");
-    service.openDocument.mockResolvedValue({
-      name: "readme.md",
-      displayPath: "C:\\notes\\readme.md",
+function openResult(id: string, name: string, html = "<h1>Hello</h1><p>Safe content</p>") {
+  return {
+    document: {
+      id,
+      name,
+      displayPath: `C:\\notes\\${name}`,
       byteSize: 128,
       modifiedAtMs: 0,
       encoding: "UTF-8",
       lineCount: 2,
-      html: "<h1>Hello</h1><p>Safe content</p>",
-    });
+      mode: "full" as const,
+      revision: 1,
+    },
+    html,
+    reused: false,
+  };
+}
+
+describe("App", () => {
+  beforeEach(() => {
+    Object.values(service).forEach((mock) => mock.mockReset());
+    Object.values(preferences).forEach((mock) => mock.mockReset());
+    preferences.loadPreferences.mockResolvedValue({ theme: "light", recentFiles: [] });
+    preferences.saveTheme.mockResolvedValue(undefined);
+    preferences.saveRecentFiles.mockResolvedValue(undefined);
+    service.closeDocument.mockResolvedValue(undefined);
+  });
+
+  it("opens and displays a rendered Markdown document", async () => {
+    service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\readme.md"]);
+    service.openDocument.mockResolvedValue(openResult("doc-1", "readme.md"));
 
     render(App);
     await fireEvent.click(screen.getByRole("button", { name: "Open file" }));
 
     expect(await screen.findByRole("heading", { name: "Hello" })).toBeVisible();
     expect(screen.getByText("Safe content")).toBeVisible();
+    expect(screen.getByRole("tab", { name: "readme.md" })).toHaveAttribute("aria-selected", "true");
     expect(document.title).toBe("readme.md — LitheMark");
   });
 
+  it("opens multiple tabs and releases a closed document", async () => {
+    service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\first.md", "C:\\notes\\second.md"]);
+    service.openDocument
+      .mockResolvedValueOnce(openResult("doc-1", "first.md", "<h1>First</h1>"))
+      .mockResolvedValueOnce(openResult("doc-2", "second.md", "<h1>Second</h1>"));
+
+    render(App);
+    await fireEvent.click(screen.getByRole("button", { name: "Open file" }));
+
+    expect(await screen.findByRole("heading", { name: "Second" })).toBeVisible();
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Close second.md" }));
+    await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(1));
+    expect(service.closeDocument).toHaveBeenCalledWith("doc-2");
+    expect(screen.getByRole("heading", { name: "First" })).toBeVisible();
+  });
+
   it("shows a recoverable error when a document cannot be read", async () => {
-    service.selectMarkdownFile.mockResolvedValue("C:\\notes\\missing.md");
+    service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\missing.md"]);
     service.openDocument.mockRejectedValue({
       code: "file_not_found",
       message: "The file could not be found.",
@@ -57,7 +98,8 @@ describe("App", () => {
     render(App);
 
     await fireEvent.click(screen.getByRole("button", { name: "Dark" }));
-    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    await waitFor(() => expect(document.documentElement).toHaveAttribute("data-theme", "dark"));
+    expect(preferences.saveTheme).toHaveBeenCalledWith("dark");
 
     await fireEvent.click(screen.getByRole("button", { name: "Light" }));
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
