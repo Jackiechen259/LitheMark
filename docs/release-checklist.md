@@ -1,0 +1,59 @@
+# Release checklist
+
+## Version and source
+
+- Confirm `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` use the same
+  version.
+- Update `CHANGELOG.md`.
+- Confirm `AGENT_PLAN_LitheMark.md`, generated fixtures, `dist`, and `src-tauri/target` remain
+  ignored.
+- Confirm the working tree contains only intended source and documentation changes.
+
+## Quality gates
+
+```shell
+pnpm install --frozen-lockfile
+pnpm validate
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+cargo test --locked --manifest-path src-tauri/Cargo.toml --all-features
+```
+
+Regenerate the ignored 1, 10, and 50 MiB fixtures and compare the Release benchmark against
+`benchmarks/latest.json`. Investigate material regressions in initial indexing or first-batch
+rendering before release.
+
+## Manual smoke test
+
+- Open one small and one 50 MiB Markdown document.
+- Confirm tabs, outline navigation, search, local images, external links, and theme switching.
+- Modify and delete a copy of an open document; confirm reload and snapshot messaging.
+- Restart at a non-default size and position; confirm window state restoration.
+- Test at 100%, 150%, and 200% display scaling.
+- Navigate tabs and search without a mouse and inspect focus visibility.
+
+## Windows bundle
+
+```shell
+pnpm desktop:bundle:windows
+```
+
+The validated 0.1.0 development-host outputs were:
+
+- `src-tauri/target/release/lithemark.exe` — 13.12 MiB
+- `src-tauri/target/release/bundle/nsis/LitheMark_0.1.0_x64-setup.exe` — 2.86 MiB
+
+Generate and publish SHA-256 checksums from the final clean source revision. Install, launch,
+and uninstall the NSIS bundle on a clean Windows VM before attaching it to a release.
+
+The WiX MSI linker failed on the development host, while the application binary and NSIS
+bundle succeeded. `pnpm desktop:build` intentionally builds the portable application without
+bundling; use the explicit Windows bundle command above for the validated installer. Treat
+MSI as unvalidated until it passes on a clean release runner.
+
+## Publication
+
+- Tag the reviewed commit as `v<version>`.
+- Attach installers and SHA-256 checksums.
+- Copy the matching changelog section into the release notes.
+- Clearly mark unsigned development builds; production releases should use platform signing.

@@ -66,6 +66,7 @@ impl DocumentManager {
             .documents
             .remove(&id)
             .ok_or(AppError::DocumentNotFound)?;
+        session.cancel();
         registry.paths.remove(&session.canonical_path);
         Ok(())
     }

@@ -12,14 +12,19 @@
     "check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "fixtures:large": "node scripts/generate-large-markdown.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "validate": "pnpm format:check && pnpm check && pnpm test && pnpm build",
+    "release:check": "pnpm validate && node scripts/check-release.ts",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build"
+    "desktop:build": "tauri build --no-bundle",
+    "desktop:bundle:windows": "tauri build --bundles nsis"
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {
+    "@tanstack/svelte-virtual": "^3.13.34",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-opener": "^2.5.4",

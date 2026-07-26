@@ -1,17 +1,27 @@
 use std::ops::Range;
 
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag};
+use tokio_util::sync::CancellationToken;
 
-use super::block::RawBlock;
+use super::block::{DocumentStats, IndexedBlock, RawBlock};
 use super::heading::Slugger;
 use super::{render_safe_markdown, with_heading_id};
+use crate::errors::AppError;
 use crate::types::{BlockKind, HeadingDto, MarkdownBlockDto};
 
 const MAX_MERGED_PARAGRAPH_BYTES: usize = 32 * 1024;
+const INITIAL_INDEX_SCAN_BYTES: usize = 512 * 1024;
 
 pub struct ParsedMarkdown {
     pub blocks: Vec<MarkdownBlockDto>,
     pub headings: Vec<HeadingDto>,
+}
+
+pub struct IndexedMarkdown {
+    pub blocks: Vec<IndexedBlock>,
+    pub headings: Vec<HeadingDto>,
+    pub stats: DocumentStats,
+    pub complete: bool,
 }
 
 struct ActiveBlock {
@@ -21,16 +31,86 @@ struct ActiveBlock {
 
 #[must_use]
 pub fn parse_markdown_blocks(source: &str) -> ParsedMarkdown {
-    let raw_blocks = collect_raw_blocks(source);
-    let raw_blocks = merge_adjacent_paragraphs(source, raw_blocks);
-    render_blocks(source, raw_blocks)
+    match parse_markdown_index(source, None, None) {
+        Ok(index) => ParsedMarkdown {
+            blocks: render_indexed_blocks(source, &index.blocks),
+            headings: index.headings,
+        },
+        Err(_) => ParsedMarkdown {
+            blocks: Vec::new(),
+            headings: Vec::new(),
+        },
+    }
 }
 
-fn collect_raw_blocks(source: &str) -> Vec<RawBlock> {
+pub fn parse_markdown_index(
+    source: &str,
+    limit: Option<usize>,
+    cancellation: Option<&CancellationToken>,
+) -> Result<IndexedMarkdown, AppError> {
+    let scan_end = if limit.is_some() && source.len() > INITIAL_INDEX_SCAN_BYTES {
+        floor_char_boundary(source, INITIAL_INDEX_SCAN_BYTES)
+    } else {
+        source.len()
+    };
+    let scan_source = &source[..scan_end];
+    let (raw_blocks, parser_complete) = collect_raw_blocks(scan_source, limit, cancellation)?;
+    let raw_blocks = merge_adjacent_paragraphs(source, raw_blocks);
+    Ok(index_blocks(
+        source,
+        raw_blocks,
+        parser_complete && scan_end == source.len(),
+    ))
+}
+
+fn floor_char_boundary(source: &str, index: usize) -> usize {
+    let mut boundary = index.min(source.len());
+    while boundary > 0 && !source.is_char_boundary(boundary) {
+        boundary -= 1;
+    }
+    boundary
+}
+
+#[must_use]
+pub fn render_indexed_blocks(source: &str, blocks: &[IndexedBlock]) -> Vec<MarkdownBlockDto> {
+    blocks
+        .iter()
+        .map(|block| {
+            let block_source = &source[block.source_start..block.source_end];
+            let mut html = render_safe_markdown(block_source);
+            if let Some(heading) = &block.heading {
+                html = with_heading_id(html, heading.level, &heading.slug);
+            }
+            MarkdownBlockDto {
+                id: block.id,
+                kind: block.kind,
+                source_start: block.source_start,
+                source_end: block.source_end,
+                estimated_height: block.estimated_height,
+                html: Some(html),
+                plain_text: block.plain_text.clone(),
+            }
+        })
+        .collect()
+}
+
+fn collect_raw_blocks(
+    source: &str,
+    limit: Option<usize>,
+    cancellation: Option<&CancellationToken>,
+) -> Result<(Vec<RawBlock>, bool), AppError> {
     let mut blocks = Vec::new();
     let mut active: Option<ActiveBlock> = None;
+    let mut complete = true;
 
-    for (event, range) in Parser::new_ext(source, markdown_options()).into_offset_iter() {
+    for (event_index, (event, range)) in Parser::new_ext(source, markdown_options())
+        .into_offset_iter()
+        .enumerate()
+    {
+        if event_index % 1_024 == 0 && cancellation.is_some_and(CancellationToken::is_cancelled) {
+            return Err(AppError::SearchCancelled);
+        }
+
         if let Some(current) = active.as_mut() {
             current.block.source_end = current.block.source_end.max(range.end);
             collect_plain_text(&mut current.block.plain_text, &event);
@@ -42,6 +122,10 @@ fn collect_raw_blocks(source: &str) -> Vec<RawBlock> {
                         && let Some(completed) = active.take()
                     {
                         blocks.push(completed.block);
+                        if limit.is_some_and(|value| blocks.len() >= value) {
+                            complete = false;
+                            break;
+                        }
                     }
                 }
                 _ => {}
@@ -77,12 +161,17 @@ fn collect_raw_blocks(source: &str) -> Vec<RawBlock> {
             }
             _ => {}
         }
+
+        if limit.is_some_and(|value| blocks.len() >= value) {
+            complete = false;
+            break;
+        }
     }
 
     if let Some(unclosed) = active {
         blocks.push(unclosed.block);
     }
-    blocks
+    Ok((blocks, complete))
 }
 
 fn single_event_block(kind: BlockKind, range: Range<usize>) -> RawBlock {
@@ -172,45 +261,66 @@ fn merge_adjacent_paragraphs(source: &str, blocks: Vec<RawBlock>) -> Vec<RawBloc
     merged
 }
 
-fn render_blocks(source: &str, raw_blocks: Vec<RawBlock>) -> ParsedMarkdown {
+fn index_blocks(source: &str, raw_blocks: Vec<RawBlock>, complete: bool) -> IndexedMarkdown {
     let mut blocks = Vec::with_capacity(raw_blocks.len());
     let mut headings = Vec::new();
     let mut slugger = Slugger::default();
+    let mut stats = DocumentStats::default();
 
     for (index, raw) in raw_blocks.into_iter().enumerate() {
         let id = u64::try_from(index).unwrap_or(u64::MAX);
-        let block_source = &source[raw.source_start..raw.source_end];
-        let mut html = render_safe_markdown(block_source);
-        let plain_text = if matches!(raw.kind, BlockKind::CodeBlock | BlockKind::Heading) {
-            Some(raw.plain_text.clone())
-        } else {
-            None
-        };
-
-        if let Some(level) = raw.heading_level {
+        let heading = raw.heading_level.map(|level| {
             let text = raw.plain_text.trim().to_owned();
-            let slug = slugger.slug(&text);
-            html = with_heading_id(html, level, &slug);
-            headings.push(HeadingDto {
+            HeadingDto {
                 block_id: id,
                 level,
+                slug: slugger.slug(&text),
                 text,
-                slug,
-            });
+            }
+        });
+        if let Some(heading) = &heading {
+            headings.push(heading.clone());
         }
 
-        blocks.push(MarkdownBlockDto {
+        let byte_length = raw.source_end.saturating_sub(raw.source_start);
+        match raw.kind {
+            BlockKind::CodeBlock => {
+                stats.max_code_block_bytes = stats.max_code_block_bytes.max(byte_length);
+            }
+            BlockKind::Table => {
+                stats.max_table_rows = stats
+                    .max_table_rows
+                    .max(source[raw.source_start..raw.source_end].lines().count());
+            }
+            BlockKind::HtmlBlock => stats.html_block_count += 1,
+            _ => {}
+        }
+        stats.estimated_dom_nodes = stats
+            .estimated_dom_nodes
+            .saturating_add(raw.plain_text.split_whitespace().count().max(1));
+
+        blocks.push(IndexedBlock {
             id,
             kind: raw.kind,
             source_start: raw.source_start,
             source_end: raw.source_end,
             estimated_height: raw.estimated_height(source),
-            html: Some(html),
-            plain_text,
+            plain_text: if matches!(raw.kind, BlockKind::CodeBlock | BlockKind::Heading) {
+                Some(raw.plain_text)
+            } else {
+                None
+            },
+            heading,
         });
     }
+    stats.block_count = blocks.len();
 
-    ParsedMarkdown { blocks, headings }
+    IndexedMarkdown {
+        blocks,
+        headings,
+        stats,
+        complete,
+    }
 }
 
 fn markdown_options() -> Options {
@@ -226,7 +336,7 @@ fn markdown_options() -> Options {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_markdown_blocks;
+    use super::{parse_markdown_blocks, parse_markdown_index};
     use crate::types::BlockKind;
 
     #[test]
@@ -275,5 +385,31 @@ mod tests {
                 .as_deref()
                 .is_some_and(|html| html.contains("id=\"same-2\""))
         );
+    }
+
+    #[test]
+    fn can_stop_after_initial_blocks_without_scanning_the_full_document() {
+        let source = (0..1_000)
+            .map(|index| format!("## Heading {index}\n\nParagraph {index}\n\n---\n\n"))
+            .collect::<String>();
+        let index = parse_markdown_index(&source, Some(25), None);
+        assert!(index.is_ok());
+        if let Ok(index) = index {
+            assert!(!index.complete);
+            assert!(index.blocks.len() <= 25);
+        }
+    }
+
+    #[test]
+    fn initial_index_prefix_ends_on_a_utf8_boundary() {
+        let source = format!("{}\n\n# Later", "界".repeat(200_000));
+        let index = parse_markdown_index(&source, Some(25), None);
+
+        assert!(index.is_ok());
+        if let Ok(index) = index {
+            assert!(!index.complete);
+            assert_eq!(index.blocks.len(), 1);
+            assert!(source.is_char_boundary(index.blocks[0].source_end));
+        }
     }
 }

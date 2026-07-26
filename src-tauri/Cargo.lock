@@ -1961,8 +1961,11 @@ name = "lithemark"
 version = "0.1.0"
 dependencies = [
  "ammonia",
+ "base64 0.22.1",
  "parking_lot",
+ "percent-encoding",
  "pulldown-cmark",
+ "regex",
  "serde",
  "serde_json",
  "tauri",
@@ -1973,6 +1976,7 @@ dependencies = [
  "tauri-plugin-window-state",
  "thiserror 2.0.19",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
  "url",

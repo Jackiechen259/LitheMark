@@ -31,7 +31,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check frontend
-        run: pnpm check
+        run: |
+          pnpm format:check
+          pnpm check
 
       - name: Test frontend
         run: pnpm test
@@ -45,8 +47,8 @@ jobs:
 
       - name: Lint Rust
         working-directory: src-tauri
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
       - name: Test Rust
         working-directory: src-tauri
-        run: cargo test --all-features
+        run: cargo test --locked --all-features

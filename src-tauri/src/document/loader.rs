@@ -3,7 +3,7 @@ use std::time::UNIX_EPOCH;
 
 use crate::errors::AppError;
 
-const MAX_FULL_RENDER_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES: u64 = 256 * 1024 * 1024;
 
 pub struct LoadedDocument {
     pub canonical_path: PathBuf,
@@ -36,7 +36,7 @@ pub async fn load_canonical(canonical_path: PathBuf) -> Result<LoadedDocument, A
     if !metadata.is_file() {
         return Err(AppError::NotAFile);
     }
-    if metadata.len() > MAX_FULL_RENDER_BYTES {
+    if metadata.len() > MAX_DOCUMENT_BYTES {
         return Err(AppError::FileTooLarge);
     }
 

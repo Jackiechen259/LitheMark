@@ -1,0 +1,40 @@
+{
+  "generatedAtMs": 1785079819363,
+  "profile": "release",
+  "platform": "windows-x86_64",
+  "cases": [
+    {
+      "file": "large-1mb.md",
+      "bytes": 1048576,
+      "readMs": 1.1274,
+      "initialIndexMs": 8.3151,
+      "fullIndexMs": 43.4394,
+      "firstBatchRenderMs": 2.7133,
+      "blockCount": 16982,
+      "initialBlockCount": 120,
+      "firstBatchHtmlBytes": 5282
+    },
+    {
+      "file": "large-10mb.md",
+      "bytes": 10485760,
+      "readMs": 7.0001,
+      "initialIndexMs": 7.5861,
+      "fullIndexMs": 394.6584,
+      "firstBatchRenderMs": 1.4566,
+      "blockCount": 169748,
+      "initialBlockCount": 120,
+      "firstBatchHtmlBytes": 5282
+    },
+    {
+      "file": "large-50mb.md",
+      "bytes": 52428800,
+      "readMs": 33.8142,
+      "initialIndexMs": 10.5889,
+      "fullIndexMs": 1834.8058,
+      "firstBatchRenderMs": 1.4634,
+      "blockCount": 848709,
+      "initialBlockCount": 120,
+      "firstBatchHtmlBytes": 5282
+    }
+  ]
+}

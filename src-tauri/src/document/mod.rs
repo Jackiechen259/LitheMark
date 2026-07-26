@@ -1,3 +1,5 @@
+pub(crate) mod asset;
 pub mod loader;
 pub mod manager;
-mod session;
+mod mode;
+pub(crate) mod session;

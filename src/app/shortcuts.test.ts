@@ -8,6 +8,7 @@ function actions(): ShortcutActions {
     closeActive: vi.fn(),
     nextTab: vi.fn(),
     previousTab: vi.fn(),
+    find: vi.fn(),
   };
 }
 
@@ -19,6 +20,13 @@ describe("handleShortcut", () => {
 
     expect(handlers.open).toHaveBeenCalledOnce();
     expect(handlers.closeActive).toHaveBeenCalledOnce();
+  });
+
+  it("opens document search", () => {
+    const handlers = actions();
+    handleShortcut(new KeyboardEvent("keydown", { key: "f", ctrlKey: true }), handlers);
+
+    expect(handlers.find).toHaveBeenCalledOnce();
   });
 
   it("cycles tabs in both directions", () => {

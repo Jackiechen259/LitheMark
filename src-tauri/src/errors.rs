@@ -28,6 +28,10 @@ pub enum AppError {
     ResourceDenied,
     #[error("The search was cancelled.")]
     SearchCancelled,
+    #[error("The document is still being indexed. Try searching again in a moment.")]
+    IndexingInProgress,
+    #[error("The search query is invalid.")]
+    InvalidSearch,
     #[error("This external URL is not allowed.")]
     ExternalUrlDenied,
     #[error("A file system operation failed: {0}")]
@@ -62,6 +66,8 @@ impl AppError {
             Self::StaleRevision => "stale_revision",
             Self::ResourceDenied => "resource_denied",
             Self::SearchCancelled => "search_cancelled",
+            Self::IndexingInProgress => "indexing_in_progress",
+            Self::InvalidSearch => "invalid_search",
             Self::ExternalUrlDenied => "external_url_denied",
             Self::Io(_) => "io",
             Self::Internal => "internal",

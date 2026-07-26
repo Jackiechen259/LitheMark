@@ -1,7 +1,7 @@
 mod commands;
-mod document;
+pub mod document;
 pub mod errors;
-mod markdown;
+pub mod markdown;
 mod telemetry;
 mod types;
 
@@ -26,6 +26,10 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::document::get_document_metadata,
             commands::document::get_blocks,
             commands::document::get_headings,
+            commands::document::search_document,
+            commands::document::cancel_search,
+            commands::document::load_local_asset,
+            commands::document::check_document_change,
             commands::system::open_external_url
         ])
         .on_window_event(|window, event| {

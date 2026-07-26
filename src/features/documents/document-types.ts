@@ -9,7 +9,7 @@ export interface DocumentMetadata {
   modifiedAtMs: number;
   encoding: string;
   lineCount: number;
-  mode: "full";
+  mode: "full" | "virtualized" | "huge";
   blockCount?: number;
   revision: number;
 }
@@ -59,6 +59,53 @@ export interface BlockBatch {
   blocks: MarkdownBlock[];
 }
 
+export interface DocumentIndexReady {
+  document: DocumentMetadata;
+  headings: Heading[];
+}
+
+export interface HeadingJump {
+  documentId: string;
+  blockId: number;
+  slug: string;
+  nonce: number;
+}
+
+export interface SearchOptions {
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  limit: number;
+}
+
+export interface SearchMatch {
+  blockId: number;
+  lineNumber: number;
+  preview: string;
+  previewMatchStart: number;
+  previewMatchEnd: number;
+}
+
+export interface SearchResult {
+  documentId: string;
+  revision: number;
+  query: string;
+  matches: SearchMatch[];
+  truncated: boolean;
+}
+
+export interface LocalAsset {
+  dataUrl: string;
+  mimeType: string;
+  byteSize: number;
+}
+
+export interface DocumentChange {
+  documentId: string;
+  changed: boolean;
+  kind?: "modified" | "deleted";
+  fingerprint: string;
+}
+
 export interface DocumentTab {
   documentId: string;
   metadata: DocumentMetadata;
@@ -68,6 +115,8 @@ export interface DocumentTab {
   status: TabStatus;
   scrollTop: number;
   outlineExpanded: boolean;
+  externalChange?: DocumentChange;
+  ignoredChangeFingerprint?: string;
 }
 
 export interface RecentFile {

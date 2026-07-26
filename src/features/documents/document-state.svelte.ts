@@ -1,8 +1,14 @@
-import type { DocumentTab, OpenDocumentResult } from "./document-types";
+import type {
+  DocumentChange,
+  DocumentIndexReady,
+  DocumentTab,
+  OpenDocumentResult,
+} from "./document-types";
 
 export class AppState {
   tabs = $state<DocumentTab[]>([]);
   activeDocumentId = $state<string | null>(null);
+  #pendingIndexes = new Map<string, DocumentIndexReady>();
 
   activeTab = $derived(this.tabs.find((tab) => tab.documentId === this.activeDocumentId) ?? null);
 
@@ -14,6 +20,8 @@ export class AppState {
       existing.headings = result.headings;
       existing.indexComplete = result.indexComplete;
       existing.status = "ready";
+      existing.externalChange = undefined;
+      existing.ignoredChangeFingerprint = undefined;
     } else {
       this.tabs.push({
         documentId: result.document.id,
@@ -27,6 +35,24 @@ export class AppState {
       });
     }
     this.activeDocumentId = result.document.id;
+    const pending = this.#pendingIndexes.get(result.document.id);
+    if (pending) {
+      this.#pendingIndexes.delete(result.document.id);
+      this.completeIndex(pending);
+    }
+  }
+
+  completeIndex(payload: DocumentIndexReady) {
+    const tab = this.tabs.find((candidate) => candidate.documentId === payload.document.id);
+    if (!tab) {
+      this.#pendingIndexes.set(payload.document.id, payload);
+      return;
+    }
+    if (tab.metadata.revision !== payload.document.revision) return;
+
+    tab.metadata = payload.document;
+    tab.headings = payload.headings;
+    tab.indexComplete = true;
   }
 
   activate(documentId: string) {
@@ -57,6 +83,24 @@ export class AppState {
   updateScroll(documentId: string, scrollTop: number) {
     const tab = this.tabs.find((candidate) => candidate.documentId === documentId);
     if (tab) tab.scrollTop = scrollTop;
+  }
+
+  reportExternalChange(change: DocumentChange) {
+    const tab = this.tabs.find((candidate) => candidate.documentId === change.documentId);
+    if (!tab) return;
+    if (!change.changed) {
+      tab.externalChange = undefined;
+      tab.ignoredChangeFingerprint = undefined;
+    } else if (change.fingerprint !== tab.ignoredChangeFingerprint) {
+      tab.externalChange = change;
+    }
+  }
+
+  dismissExternalChange(documentId: string) {
+    const tab = this.tabs.find((candidate) => candidate.documentId === documentId);
+    if (!tab?.externalChange) return;
+    tab.ignoredChangeFingerprint = tab.externalChange.fingerprint;
+    tab.externalChange = undefined;
   }
 
   sidebarOpen = $state(true);

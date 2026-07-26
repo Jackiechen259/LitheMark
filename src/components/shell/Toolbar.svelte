@@ -33,15 +33,25 @@
       <button
         type="button"
         class="secondary-button"
+        aria-label={outlineOpen ? "Hide document outline" : "Show document outline"}
         aria-pressed={outlineOpen}
+        title="Toggle outline"
         onclick={onToggleOutline}
       >
         {outlineOpen ? "Hide outline" : "Show outline"}
       </button>
     {/if}
-    <button type="button" class="secondary-button" onclick={onToggleTheme}>
+    <button
+      type="button"
+      class="secondary-button"
+      aria-label={`Use ${theme === "light" ? "dark" : "light"} theme`}
+      title="Toggle color theme"
+      onclick={onToggleTheme}
+    >
       {theme === "light" ? "Dark" : "Light"}
     </button>
-    <button type="button" class="primary-button" onclick={onOpen}>Open file</button>
+    <button type="button" class="primary-button" title="Open file (Ctrl+O)" onclick={onOpen}
+      >Open file</button
+    >
   </div>
 </div>

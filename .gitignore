@@ -2,6 +2,7 @@
 node_modules
 /dist
 /coverage
+/fixtures/generated
 /src-tauri/target
 .env
 .env.*

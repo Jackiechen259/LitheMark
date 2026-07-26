@@ -3,6 +3,7 @@ export interface ShortcutActions {
   closeActive: () => void;
   nextTab: () => void;
   previousTab: () => void;
+  find: () => void;
 }
 
 export function handleShortcut(event: KeyboardEvent, actions: ShortcutActions) {
@@ -16,6 +17,9 @@ export function handleShortcut(event: KeyboardEvent, actions: ShortcutActions) {
   } else if (key === "w") {
     event.preventDefault();
     actions.closeActive();
+  } else if (key === "f") {
+    event.preventDefault();
+    actions.find();
   } else if (event.key === "Tab") {
     event.preventDefault();
     if (event.shiftKey) actions.previousTab();

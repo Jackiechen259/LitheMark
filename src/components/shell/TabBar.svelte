@@ -19,6 +19,25 @@
       onClose(documentId);
     }
   }
+
+  function handleTabKey(event: KeyboardEvent, index: number) {
+    let targetIndex: number | null = null;
+    if (event.key === "ArrowRight") targetIndex = (index + 1) % tabs.length;
+    else if (event.key === "ArrowLeft") targetIndex = (index - 1 + tabs.length) % tabs.length;
+    else if (event.key === "Home") targetIndex = 0;
+    else if (event.key === "End") targetIndex = tabs.length - 1;
+    else if (event.key === "Delete") {
+      event.preventDefault();
+      onClose(tabs[index].documentId);
+      return;
+    }
+    if (targetIndex === null) return;
+
+    event.preventDefault();
+    const target = tabs[targetIndex];
+    onActivate(target.documentId);
+    globalThis.document.getElementById(`tab-${target.documentId}`)?.focus();
+  }
 </script>
 
 <div class="tab-bar" role="tablist" aria-label="Open documents">
@@ -26,10 +45,14 @@
     <div class:active={tab.documentId === activeDocumentId} class="tab-item">
       <button
         type="button"
+        id={`tab-${tab.documentId}`}
         role="tab"
         aria-selected={tab.documentId === activeDocumentId}
+        aria-controls={`panel-${tab.documentId}`}
+        tabindex={tab.documentId === activeDocumentId ? 0 : -1}
         title={tab.metadata.displayPath}
         onclick={() => onActivate(tab.documentId)}
+        onkeydown={(event) => handleTabKey(event, tabs.indexOf(tab))}
         onauxclick={(event) => handleAuxClick(event, tab.documentId)}
       >
         <span>{tab.metadata.name}</span>

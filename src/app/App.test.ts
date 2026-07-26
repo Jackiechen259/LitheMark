@@ -11,6 +11,10 @@ const service = vi.hoisted(() => ({
   getDocumentMetadata: vi.fn(),
   getBlocks: vi.fn(),
   getHeadings: vi.fn(),
+  searchDocument: vi.fn(),
+  cancelSearch: vi.fn(),
+  loadLocalAsset: vi.fn(),
+  checkDocumentChange: vi.fn(),
   openExternalUrl: vi.fn(),
 }));
 const preferences = vi.hoisted(() => ({
@@ -21,6 +25,9 @@ const preferences = vi.hoisted(() => ({
 
 vi.mock("../features/documents/document-service", () => service);
 vi.mock("../features/settings/settings-service", () => preferences);
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(vi.fn()),
+}));
 
 function openResult(id: string, name: string, html = "<h1>Hello</h1><p>Safe content</p>") {
   return {
@@ -61,6 +68,12 @@ describe("App", () => {
     preferences.saveTheme.mockResolvedValue(undefined);
     preferences.saveRecentFiles.mockResolvedValue(undefined);
     service.closeDocument.mockResolvedValue(undefined);
+    service.cancelSearch.mockResolvedValue(undefined);
+    service.checkDocumentChange.mockResolvedValue({
+      documentId: "none",
+      changed: false,
+      fingerprint: "same",
+    });
   });
 
   it("opens and displays a rendered Markdown document", async () => {
@@ -112,11 +125,46 @@ describe("App", () => {
   it("switches between light and dark themes", async () => {
     render(App);
 
-    await fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Use dark theme" }));
     await waitFor(() => expect(document.documentElement).toHaveAttribute("data-theme", "dark"));
     expect(preferences.saveTheme).toHaveBeenCalledWith("dark");
 
-    await fireEvent.click(screen.getByRole("button", { name: "Light" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Use light theme" }));
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
+  });
+
+  it("searches the active document and navigates to a result block", async () => {
+    service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\search.md"]);
+    service.openDocument.mockResolvedValue(openResult("doc-search", "search.md"));
+    service.searchDocument.mockResolvedValue({
+      documentId: "doc-search",
+      revision: 1,
+      query: "content",
+      matches: [
+        {
+          blockId: 0,
+          lineNumber: 2,
+          preview: "Safe content",
+          previewMatchStart: 5,
+          previewMatchEnd: 12,
+        },
+      ],
+      truncated: false,
+    });
+
+    render(App);
+    await fireEvent.click(screen.getByRole("button", { name: "Open file" }));
+    await screen.findByRole("heading", { name: "Hello" });
+    await fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    await fireEvent.input(screen.getByRole("searchbox", { name: "Search document" }), {
+      target: { value: "content" },
+    });
+
+    expect(await screen.findByRole("button", { name: /Line 2.*Safe content/ })).toBeVisible();
+    expect(service.searchDocument).toHaveBeenCalledWith("doc-search", "content", 1, {
+      caseSensitive: false,
+      wholeWord: false,
+      limit: 500,
+    });
   });
 });

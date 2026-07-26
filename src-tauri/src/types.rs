@@ -22,6 +22,8 @@ impl Default for DocumentId {
 #[serde(rename_all = "snake_case")]
 pub enum RenderMode {
     Full,
+    Virtualized,
+    Huge,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -93,4 +95,70 @@ pub struct BlockBatchDto {
     pub start: usize,
     pub total: usize,
     pub blocks: Vec<MarkdownBlockDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentIndexReadyDto {
+    pub document: DocumentMetadataDto,
+    pub headings: Vec<HeadingDto>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchOptionsDto {
+    #[serde(default)]
+    pub case_sensitive: bool,
+    #[serde(default)]
+    pub whole_word: bool,
+    #[serde(default = "default_search_limit")]
+    pub limit: usize,
+}
+
+fn default_search_limit() -> usize {
+    500
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchMatchDto {
+    pub block_id: u64,
+    pub line_number: usize,
+    pub preview: String,
+    pub preview_match_start: usize,
+    pub preview_match_end: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResultDto {
+    pub document_id: DocumentId,
+    pub revision: u64,
+    pub query: String,
+    pub matches: Vec<SearchMatchDto>,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalAssetDto {
+    pub data_url: String,
+    pub mime_type: String,
+    pub byte_size: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DocumentChangeKind {
+    Modified,
+    Deleted,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentChangeDto {
+    pub document_id: DocumentId,
+    pub changed: bool,
+    pub kind: Option<DocumentChangeKind>,
+    pub fingerprint: String,
 }

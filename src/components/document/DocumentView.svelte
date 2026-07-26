@@ -1,19 +1,24 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { onDestroy, tick } from "svelte";
 
   import { openExternalUrl } from "../../features/documents/document-service";
-  import type { DocumentTab } from "../../features/documents/document-types";
+  import type { DocumentTab, HeadingJump } from "../../features/documents/document-types";
   import { normalizeAppError } from "../../lib/errors";
   import MarkdownBlock from "./MarkdownBlock.svelte";
+  import VirtualDocument from "./VirtualDocument.svelte";
 
   let {
     tab,
+    jump,
     onScroll,
     onExternalError,
+    onInternalLink,
   }: {
     tab: DocumentTab;
+    jump: HeadingJump | null;
     onScroll: (scrollTop: number) => void;
     onExternalError: (message: string) => void;
+    onInternalLink: (blockId: number, slug: string) => void;
   } = $props();
 
   let scrollFrame: number | null = null;
@@ -31,7 +36,9 @@
     event.preventDefault();
 
     if (href.startsWith("#")) {
-      globalThis.document.getElementById(href.slice(1))?.scrollIntoView({ block: "start" });
+      const slug = href.slice(1);
+      const heading = tab.headings.find((candidate) => candidate.slug === slug);
+      if (heading) onInternalLink(heading.blockId, heading.slug);
       return;
     }
 
@@ -68,12 +75,35 @@
   onDestroy(() => {
     if (scrollFrame !== null) cancelAnimationFrame(scrollFrame);
   });
+
+  $effect(() => {
+    if (!jump || jump.documentId !== tab.documentId || tab.metadata.mode !== "full") return;
+    jump.nonce;
+    void tick().then(() => {
+      globalThis.document.getElementById(jump.slug)?.scrollIntoView?.({
+        block: "start",
+        behavior: "smooth",
+      });
+    });
+  });
 </script>
 
-<div class="document-scroll" use:restoreScroll onscroll={handleScroll}>
-  <article class="markdown-document" aria-label={tab.metadata.name} use:interceptLinks>
-    {#each tab.blocks as block (block.id)}
-      <MarkdownBlock {block} />
-    {/each}
-  </article>
-</div>
+{#if tab.metadata.mode === "full"}
+  <div
+    class="document-scroll"
+    id={`panel-${tab.documentId}`}
+    role="tabpanel"
+    aria-labelledby={`tab-${tab.documentId}`}
+    tabindex="0"
+    use:restoreScroll
+    onscroll={handleScroll}
+  >
+    <article class="markdown-document" aria-label={tab.metadata.name} use:interceptLinks>
+      {#each tab.blocks as block (block.id)}
+        <MarkdownBlock {block} documentId={tab.documentId} />
+      {/each}
+    </article>
+  </div>
+{:else}
+  <VirtualDocument {tab} {jump} {onScroll} {onExternalError} {onInternalLink} />
+{/if}

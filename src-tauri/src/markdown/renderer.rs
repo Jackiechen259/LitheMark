@@ -53,10 +53,14 @@ mod tests {
     }
 
     #[test]
-    fn blocks_remote_images_until_the_asset_phase() {
-        let html = render_safe_markdown("![tracking](https://example.com/pixel.png)");
+    fn keeps_safe_relative_images_and_blocks_remote_or_traversing_sources() {
+        let html = render_safe_markdown(
+            "![local](images/diagram.png)\n\n![tracking](https://example.com/pixel.png)\n\n![escape](../secret.png)",
+        );
 
-        assert!(!html.contains("<img"));
+        assert!(html.contains(r#"<img src="images/diagram.png" alt="local">"#));
+        assert!(!html.contains("https://"));
         assert!(!html.contains("pixel.png"));
+        assert!(!html.contains("../secret.png"));
     }
 }
