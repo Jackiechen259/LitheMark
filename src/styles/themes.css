@@ -1,0 +1,14 @@
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-primary: #edf1f7;
+    --text-secondary: #9ba5b3;
+    --surface-app: #101318;
+    --surface-document: #171b22;
+    --surface-elevated: rgba(19, 23, 30, 0.82);
+    --surface-hover: #232a34;
+    --border-subtle: #2c333d;
+    --accent: #7da0ff;
+    --accent-strong: #5f84ec;
+    --shadow-soft: 0 16px 48px rgba(0, 0, 0, 0.3);
+  }
+}
