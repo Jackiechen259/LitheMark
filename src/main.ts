@@ -4,6 +4,7 @@ import App from "./app/App.svelte";
 import "./styles/tokens.css";
 import "./styles/reset.css";
 import "./styles/app.css";
+import "./styles/markdown.css";
 import "./styles/themes.css";
 
 const target = document.getElementById("app");

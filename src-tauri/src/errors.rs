@@ -28,6 +28,8 @@ pub enum AppError {
     ResourceDenied,
     #[error("The search was cancelled.")]
     SearchCancelled,
+    #[error("This external URL is not allowed.")]
+    ExternalUrlDenied,
     #[error("A file system operation failed: {0}")]
     Io(#[from] std::io::Error),
     #[error("An internal application error occurred.")]
@@ -60,6 +62,7 @@ impl AppError {
             Self::StaleRevision => "stale_revision",
             Self::ResourceDenied => "resource_denied",
             Self::SearchCancelled => "search_cancelled",
+            Self::ExternalUrlDenied => "external_url_denied",
             Self::Io(_) => "io",
             Self::Internal => "internal",
         }
