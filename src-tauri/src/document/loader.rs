@@ -14,6 +14,8 @@ pub struct LoadedDocument {
     pub encoding: String,
     pub line_count: usize,
     pub source: String,
+    pub had_utf8_bom: bool,
+    pub fingerprint: String,
 }
 
 pub async fn canonicalize_supported_path(path: String) -> Result<PathBuf, AppError> {
@@ -43,6 +45,7 @@ pub async fn load_canonical(canonical_path: PathBuf) -> Result<LoadedDocument, A
     let bytes = tokio::fs::read(&canonical_path)
         .await
         .map_err(classify_io_error)?;
+    let had_utf8_bom = bytes.starts_with(&[0xef, 0xbb, 0xbf]);
     let source_bytes = bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(&bytes);
     let source = std::str::from_utf8(source_bytes)
         .map_err(|_| AppError::EncodingFailed)?
@@ -67,6 +70,8 @@ pub async fn load_canonical(canonical_path: PathBuf) -> Result<LoadedDocument, A
         encoding: "UTF-8".to_owned(),
         line_count: source.lines().count(),
         source,
+        had_utf8_bom,
+        fingerprint: blake3::hash(&bytes).to_hex().to_string(),
         canonical_path,
     })
 }

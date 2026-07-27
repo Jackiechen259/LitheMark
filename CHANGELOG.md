@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Added a split Markdown source editor and sanitized adaptive preview.
+- Added syntax highlighting, folding, completion, multi-cursor editing, find/replace, and a
+  command palette.
+- Added versioned Rope-backed drafts, explicit save, unsaved tab protection, atomic writes, and
+  three-way handling for files changed outside LitheMark.
+
 All notable changes to LitheMark are documented in this file.
 
 ## 0.1.0 - 2026-07-26

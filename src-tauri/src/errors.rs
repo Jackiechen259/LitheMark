@@ -24,6 +24,14 @@ pub enum AppError {
     DocumentNotFound,
     #[error("The document changed while this request was running.")]
     StaleRevision,
+    #[error("The editor draft changed while this request was running.")]
+    StaleDraftRevision,
+    #[error("Editing has not been started for this document.")]
+    EditNotStarted,
+    #[error("The file changed on disk. Review and merge the changes before saving.")]
+    SaveConflict,
+    #[error("The requested editor position is invalid.")]
+    InvalidEditPosition,
     #[error("Access to this local resource was denied.")]
     ResourceDenied,
     #[error("The search was cancelled.")]
@@ -64,6 +72,10 @@ impl AppError {
             Self::ParseFailed => "parse_failed",
             Self::DocumentNotFound => "document_not_found",
             Self::StaleRevision => "stale_revision",
+            Self::StaleDraftRevision => "stale_draft_revision",
+            Self::EditNotStarted => "edit_not_started",
+            Self::SaveConflict => "save_conflict",
+            Self::InvalidEditPosition => "invalid_edit_position",
             Self::ResourceDenied => "resource_denied",
             Self::SearchCancelled => "search_cancelled",
             Self::IndexingInProgress => "indexing_in_progress",

@@ -162,3 +162,78 @@ pub struct DocumentChangeDto {
     pub kind: Option<DocumentChangeKind>,
     pub fingerprint: String,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditSessionInfoDto {
+    pub document_id: DocumentId,
+    pub document_revision: u64,
+    pub draft_revision: u64,
+    pub total_chars: usize,
+    pub line_count: usize,
+    pub dirty: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorChunkDto {
+    pub document_id: DocumentId,
+    pub draft_revision: u64,
+    pub start_char: usize,
+    pub next_char: usize,
+    pub total_chars: usize,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextPositionDto {
+    pub line: usize,
+    pub utf16_column: usize,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextEditDto {
+    pub from: TextPositionDto,
+    pub to: TextPositionDto,
+    pub insert: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditStateDto {
+    pub document_id: DocumentId,
+    pub draft_revision: u64,
+    pub total_chars: usize,
+    pub line_count: usize,
+    pub dirty: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DraftPreviewDto {
+    pub document_id: DocumentId,
+    pub draft_revision: u64,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub blocks: Vec<MarkdownBlockDto>,
+    pub headings: Vec<HeadingDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeResultDto {
+    pub document_id: DocumentId,
+    pub draft_revision: u64,
+    pub content: String,
+    pub has_conflicts: bool,
+    pub disk_fingerprint: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveEditResultDto {
+    pub document: OpenDocumentResult,
+    pub edit: EditSessionInfoDto,
+}

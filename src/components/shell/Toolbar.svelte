@@ -10,6 +10,11 @@
     onOpen,
     onToggleOutline,
     onToggleTheme,
+    editing,
+    dirty,
+    saving,
+    onEdit,
+    onSave,
   }: {
     title: string;
     path?: string;
@@ -19,6 +24,11 @@
     onOpen: () => void | Promise<void>;
     onToggleOutline: () => void;
     onToggleTheme: () => void;
+    editing: boolean;
+    dirty: boolean;
+    saving: boolean;
+    onEdit: () => void | Promise<void>;
+    onSave: () => void | Promise<void>;
   } = $props();
 </script>
 
@@ -29,6 +39,24 @@
     <span title={path}>{path ?? "Fast, private Markdown reading"}</span>
   </div>
   <div class="toolbar-actions">
+    {#if canShowOutline}
+      {#if editing}
+        <button
+          type="button"
+          class="primary-button"
+          disabled={saving || !dirty}
+          title="Save file (Ctrl+S)"
+          onclick={onSave}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button type="button" class="secondary-button" onclick={onEdit}>Done</button>
+      {:else}
+        <button type="button" class="secondary-button" title="Edit Markdown" onclick={onEdit}>
+          Edit
+        </button>
+      {/if}
+    {/if}
     {#if canShowOutline}
       <button
         type="button"

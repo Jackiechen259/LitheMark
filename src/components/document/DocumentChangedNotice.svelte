@@ -4,11 +4,13 @@
     reloading,
     onReload,
     onDismiss,
+    actionLabel = "Reload",
   }: {
     kind: "modified" | "deleted";
     reloading: boolean;
     onReload: () => void;
     onDismiss: () => void;
+    actionLabel?: string;
   } = $props();
 </script>
 
@@ -21,7 +23,7 @@
   <div>
     {#if kind === "modified"}
       <button type="button" disabled={reloading} onclick={onReload}>
-        {reloading ? "Reloading…" : "Reload"}
+        {reloading ? "Working…" : actionLabel}
       </button>
     {/if}
     <button type="button" onclick={onDismiss}>Dismiss</button>

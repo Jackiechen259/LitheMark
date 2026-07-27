@@ -117,6 +117,10 @@ export interface DocumentTab {
   outlineExpanded: boolean;
   externalChange?: DocumentChange;
   ignoredChangeFingerprint?: string;
+  editing?: boolean;
+  dirty?: boolean;
+  draftRevision?: number;
+  editStatus?: "loading" | "ready" | "saving" | "conflict" | "error";
 }
 
 export interface RecentFile {
@@ -135,4 +139,63 @@ export interface AppErrorDto {
   message: string;
   recoverable: boolean;
   details?: Record<string, unknown>;
+}
+
+export interface EditSessionInfo {
+  documentId: string;
+  documentRevision: number;
+  draftRevision: number;
+  totalChars: number;
+  lineCount: number;
+  dirty: boolean;
+}
+
+export interface EditorChunk {
+  documentId: string;
+  draftRevision: number;
+  startChar: number;
+  nextChar: number;
+  totalChars: number;
+  text: string;
+}
+
+export interface TextPosition {
+  line: number;
+  utf16Column: number;
+}
+
+export interface TextEdit {
+  from: TextPosition;
+  to: TextPosition;
+  insert: string;
+}
+
+export interface EditState {
+  documentId: string;
+  draftRevision: number;
+  totalChars: number;
+  lineCount: number;
+  dirty: boolean;
+}
+
+export interface DraftPreview {
+  documentId: string;
+  draftRevision: number;
+  startLine: number;
+  endLine: number;
+  blocks: MarkdownBlock[];
+  headings: Heading[];
+}
+
+export interface SaveEditResult {
+  document: OpenDocumentResult;
+  edit: EditSessionInfo;
+}
+
+export interface MergeResult {
+  documentId: string;
+  draftRevision: number;
+  content: string;
+  hasConflicts: boolean;
+  diskFingerprint: string;
 }

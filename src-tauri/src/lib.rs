@@ -30,6 +30,14 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::document::cancel_search,
             commands::document::load_local_asset,
             commands::document::check_document_change,
+            commands::document::begin_edit,
+            commands::document::get_editor_chunk,
+            commands::document::apply_edit_batch,
+            commands::document::preview_edit,
+            commands::document::save_edit,
+            commands::document::prepare_merge,
+            commands::document::apply_merge_result,
+            commands::document::discard_edit,
             commands::system::open_external_url
         ])
         .on_window_event(|window, event| {

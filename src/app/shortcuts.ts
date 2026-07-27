@@ -4,9 +4,11 @@ export interface ShortcutActions {
   nextTab: () => void;
   previousTab: () => void;
   find: () => void;
+  save: () => void;
 }
 
 export function handleShortcut(event: KeyboardEvent, actions: ShortcutActions) {
+  if (event.defaultPrevented) return;
   const modifier = event.ctrlKey || event.metaKey;
   if (!modifier) return;
 
@@ -20,6 +22,9 @@ export function handleShortcut(event: KeyboardEvent, actions: ShortcutActions) {
   } else if (key === "f") {
     event.preventDefault();
     actions.find();
+  } else if (key === "s") {
+    event.preventDefault();
+    actions.save();
   } else if (event.key === "Tab") {
     event.preventDefault();
     if (event.shiftKey) actions.previousTab();

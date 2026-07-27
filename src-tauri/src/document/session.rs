@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::RwLock;
 use regex::{Regex, RegexBuilder};
+use ropey::Rope;
 use tokio_util::sync::CancellationToken;
 
 use super::loader::LoadedDocument;
@@ -12,8 +13,9 @@ use crate::errors::AppError;
 use crate::markdown::block::IndexedBlock;
 use crate::markdown::{parse_markdown_index, render_indexed_blocks};
 use crate::types::{
-    BlockBatchDto, DocumentId, DocumentIndexReadyDto, DocumentMetadataDto, HeadingDto,
-    OpenDocumentResult, RenderMode, SearchMatchDto, SearchOptionsDto, SearchResultDto,
+    BlockBatchDto, DocumentId, DocumentIndexReadyDto, DocumentMetadataDto, DraftPreviewDto,
+    EditSessionInfoDto, EditStateDto, EditorChunkDto, HeadingDto, OpenDocumentResult, RenderMode,
+    SearchMatchDto, SearchOptionsDto, SearchResultDto, TextEditDto,
 };
 
 struct SessionContent {
@@ -23,6 +25,30 @@ struct SessionContent {
     metadata: DocumentMetadataDto,
     index_complete: bool,
     cancellation: CancellationToken,
+    fingerprint: String,
+    had_utf8_bom: bool,
+}
+
+struct EditSession {
+    base_source: Arc<str>,
+    base_fingerprint: String,
+    had_utf8_bom: bool,
+    draft: Rope,
+    revision: u64,
+    dirty: bool,
+}
+
+pub struct EditSaveSnapshot {
+    pub base_fingerprint: String,
+    pub had_utf8_bom: bool,
+    pub draft: Rope,
+    pub revision: u64,
+}
+
+pub struct MergeInputs {
+    pub base: Arc<str>,
+    pub draft: String,
+    pub revision: u64,
 }
 
 pub struct DocumentSession {
@@ -30,6 +56,7 @@ pub struct DocumentSession {
     pub canonical_path: PathBuf,
     revision: AtomicU64,
     content: RwLock<SessionContent>,
+    edit: RwLock<Option<EditSession>>,
     search_cancellation: RwLock<CancellationToken>,
 }
 
@@ -70,7 +97,10 @@ impl DocumentSession {
                 metadata,
                 index_complete: parsed.complete,
                 cancellation: CancellationToken::new(),
+                fingerprint: loaded.fingerprint,
+                had_utf8_bom: loaded.had_utf8_bom,
             }),
+            edit: RwLock::new(None),
             search_cancellation: RwLock::new(CancellationToken::new()),
         }
     }
@@ -129,8 +159,11 @@ impl DocumentSession {
             metadata,
             index_complete: parsed.complete,
             cancellation: CancellationToken::new(),
+            fingerprint: loaded.fingerprint,
+            had_utf8_bom: loaded.had_utf8_bom,
         };
         drop(content);
+        *self.edit.write() = None;
         self.open_result(false)
     }
 
@@ -299,6 +332,206 @@ impl DocumentSession {
     pub fn cancel_search(&self) {
         self.search_cancellation.read().cancel();
     }
+
+    pub fn begin_edit(&self, document_revision: u64) -> Result<EditSessionInfoDto, AppError> {
+        let content = self.content.read();
+        ensure_revision(content.metadata.revision, document_revision)?;
+        let mut edit = self.edit.write();
+        if edit.is_none() {
+            *edit = Some(EditSession {
+                base_source: Arc::clone(&content.source),
+                base_fingerprint: content.fingerprint.clone(),
+                had_utf8_bom: content.had_utf8_bom,
+                draft: Rope::from_str(&content.source),
+                revision: 1,
+                dirty: false,
+            });
+        }
+        let session = edit.as_ref().ok_or(AppError::EditNotStarted)?;
+        Ok(EditSessionInfoDto {
+            document_id: self.id,
+            document_revision,
+            draft_revision: session.revision,
+            total_chars: session.draft.len_chars(),
+            line_count: session.draft.len_lines(),
+            dirty: session.dirty,
+        })
+    }
+
+    pub fn editor_chunk(
+        &self,
+        start_char: usize,
+        count_chars: usize,
+        draft_revision: u64,
+    ) -> Result<EditorChunkDto, AppError> {
+        let edit = self.edit.read();
+        let session = edit.as_ref().ok_or(AppError::EditNotStarted)?;
+        ensure_draft_revision(session.revision, draft_revision)?;
+        let total = session.draft.len_chars();
+        let start = start_char.min(total);
+        let end = start
+            .saturating_add(count_chars.clamp(1, 1_048_576))
+            .min(total);
+        Ok(EditorChunkDto {
+            document_id: self.id,
+            draft_revision,
+            start_char: start,
+            next_char: end,
+            total_chars: total,
+            text: session.draft.slice(start..end).to_string(),
+        })
+    }
+
+    pub fn apply_edit_batch(
+        &self,
+        base_draft_revision: u64,
+        edits: Vec<TextEditDto>,
+    ) -> Result<EditStateDto, AppError> {
+        let mut edit_session = self.edit.write();
+        let session = edit_session.as_mut().ok_or(AppError::EditNotStarted)?;
+        ensure_draft_revision(session.revision, base_draft_revision)?;
+
+        let mut resolved = edits
+            .into_iter()
+            .map(|edit| {
+                let from =
+                    position_to_char(&session.draft, edit.from.line, edit.from.utf16_column)?;
+                let to = position_to_char(&session.draft, edit.to.line, edit.to.utf16_column)?;
+                if from > to {
+                    return Err(AppError::InvalidEditPosition);
+                }
+                Ok((from, to, edit.insert))
+            })
+            .collect::<Result<Vec<_>, AppError>>()?;
+        resolved.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| right.1.cmp(&left.1)));
+        for (from, to, insert) in resolved {
+            session.draft.remove(from..to);
+            session.draft.insert(from, &insert);
+        }
+        if !session.dirty {
+            session.dirty = true;
+        }
+        session.revision = session.revision.saturating_add(1);
+        Ok(EditStateDto {
+            document_id: self.id,
+            draft_revision: session.revision,
+            total_chars: session.draft.len_chars(),
+            line_count: session.draft.len_lines(),
+            dirty: session.dirty,
+        })
+    }
+
+    pub fn draft_preview(
+        &self,
+        draft_revision: u64,
+        start_line: Option<usize>,
+        end_line: Option<usize>,
+    ) -> Result<DraftPreviewDto, AppError> {
+        let edit = self.edit.read();
+        let session = edit.as_ref().ok_or(AppError::EditNotStarted)?;
+        ensure_draft_revision(session.revision, draft_revision)?;
+        let total_lines = session.draft.len_lines();
+        let start = start_line.unwrap_or(0).min(total_lines);
+        let end = end_line.unwrap_or(total_lines).clamp(start, total_lines);
+        let start_char = session.draft.line_to_char(start);
+        let end_char = if end == total_lines {
+            session.draft.len_chars()
+        } else {
+            session.draft.line_to_char(end)
+        };
+        let source = session.draft.slice(start_char..end_char).to_string();
+        let parsed = crate::markdown::parse_markdown_blocks(&source);
+        Ok(DraftPreviewDto {
+            document_id: self.id,
+            draft_revision,
+            start_line: start,
+            end_line: end,
+            blocks: parsed.blocks,
+            headings: parsed.headings,
+        })
+    }
+
+    pub fn edit_save_snapshot(&self, draft_revision: u64) -> Result<EditSaveSnapshot, AppError> {
+        let edit = self.edit.read();
+        let session = edit.as_ref().ok_or(AppError::EditNotStarted)?;
+        ensure_draft_revision(session.revision, draft_revision)?;
+        Ok(EditSaveSnapshot {
+            base_fingerprint: session.base_fingerprint.clone(),
+            had_utf8_bom: session.had_utf8_bom,
+            draft: session.draft.clone(),
+            revision: session.revision,
+        })
+    }
+
+    pub fn merge_inputs(&self, draft_revision: u64) -> Result<MergeInputs, AppError> {
+        let edit = self.edit.read();
+        let session = edit.as_ref().ok_or(AppError::EditNotStarted)?;
+        ensure_draft_revision(session.revision, draft_revision)?;
+        Ok(MergeInputs {
+            base: Arc::clone(&session.base_source),
+            draft: session.draft.to_string(),
+            revision: session.revision,
+        })
+    }
+
+    pub fn apply_merge_result(
+        &self,
+        base_source: String,
+        base_fingerprint: String,
+        content: String,
+    ) -> Result<EditStateDto, AppError> {
+        let mut edit = self.edit.write();
+        let session = edit.as_mut().ok_or(AppError::EditNotStarted)?;
+        session.base_source = Arc::from(base_source);
+        session.base_fingerprint = base_fingerprint;
+        session.draft = Rope::from_str(&content);
+        session.revision = session.revision.saturating_add(1);
+        session.dirty = true;
+        Ok(EditStateDto {
+            document_id: self.id,
+            draft_revision: session.revision,
+            total_chars: session.draft.len_chars(),
+            line_count: session.draft.len_lines(),
+            dirty: true,
+        })
+    }
+
+    pub fn discard_edit(&self) {
+        *self.edit.write() = None;
+    }
+}
+
+fn ensure_draft_revision(current: u64, requested: u64) -> Result<(), AppError> {
+    if current == requested {
+        Ok(())
+    } else {
+        Err(AppError::StaleDraftRevision)
+    }
+}
+
+fn position_to_char(rope: &Rope, line: usize, utf16_column: usize) -> Result<usize, AppError> {
+    if line >= rope.len_lines() {
+        return Err(AppError::InvalidEditPosition);
+    }
+    let line_start = rope.line_to_char(line);
+    let line_slice = rope.line(line);
+    let mut consumed_utf16 = 0;
+    let mut consumed_chars = 0;
+    for character in line_slice.chars() {
+        if consumed_utf16 == utf16_column {
+            return Ok(line_start + consumed_chars);
+        }
+        consumed_utf16 += character.len_utf16();
+        consumed_chars += 1;
+        if consumed_utf16 > utf16_column {
+            return Err(AppError::InvalidEditPosition);
+        }
+    }
+    if consumed_utf16 == utf16_column {
+        Ok(line_start + consumed_chars)
+    } else {
+        Err(AppError::InvalidEditPosition)
+    }
 }
 
 fn search_regex(query: &str, options: &SearchOptionsDto) -> Result<Regex, AppError> {
@@ -381,7 +614,7 @@ mod tests {
     use super::DocumentSession;
     use crate::document::loader::LoadedDocument;
     use crate::errors::AppError;
-    use crate::types::{RenderMode, SearchOptionsDto};
+    use crate::types::{RenderMode, SearchOptionsDto, TextEditDto, TextPositionDto};
 
     fn session() -> DocumentSession {
         DocumentSession::new(LoadedDocument {
@@ -393,6 +626,8 @@ mod tests {
             encoding: "UTF-8".to_owned(),
             line_count: 3,
             source: "# One\n\nText".to_owned(),
+            had_utf8_bom: false,
+            fingerprint: blake3::hash(b"# One\n\nText").to_hex().to_string(),
         })
     }
 
@@ -432,6 +667,8 @@ mod tests {
             encoding: "UTF-8".to_owned(),
             line_count: 200_000,
             source,
+            had_utf8_bom: false,
+            fingerprint: String::new(),
         });
         let result = session.open_result(false);
 
@@ -452,6 +689,8 @@ mod tests {
             encoding: "UTF-8".to_owned(),
             line_count: 5,
             source: "# Rust\n\nrust is fast.\n\nrustacean and RUST".to_owned(),
+            had_utf8_bom: false,
+            fingerprint: String::new(),
         });
         let result = session.search(
             "rust".to_owned(),
@@ -487,6 +726,8 @@ mod tests {
             encoding: "UTF-8".to_owned(),
             line_count: 1,
             source: "term term term term".to_owned(),
+            had_utf8_bom: false,
+            fingerprint: String::new(),
         });
         let result = session.search(
             "term".to_owned(),
@@ -503,5 +744,70 @@ mod tests {
             assert_eq!(result.matches.len(), 2);
             assert!(result.truncated);
         }
+    }
+
+    #[test]
+    fn applies_utf16_editor_positions_and_streams_the_updated_draft() {
+        let session = DocumentSession::new(LoadedDocument {
+            canonical_path: PathBuf::from("C:\\docs\\unicode.md"),
+            name: "unicode.md".to_owned(),
+            display_path: "C:\\docs\\unicode.md".to_owned(),
+            byte_size: 7,
+            modified_at_ms: 0,
+            encoding: "UTF-8".to_owned(),
+            line_count: 1,
+            source: "a😀b".to_owned(),
+            had_utf8_bom: false,
+            fingerprint: String::new(),
+        });
+        let started = session.begin_edit(1).expect("edit session should start");
+        let state = session
+            .apply_edit_batch(
+                started.draft_revision,
+                vec![TextEditDto {
+                    from: TextPositionDto {
+                        line: 0,
+                        utf16_column: 1,
+                    },
+                    to: TextPositionDto {
+                        line: 0,
+                        utf16_column: 3,
+                    },
+                    insert: "界".to_owned(),
+                }],
+            )
+            .expect("UTF-16 positions should map to rope character positions");
+        let chunk = session
+            .editor_chunk(0, 100, state.draft_revision)
+            .expect("updated draft should stream");
+
+        assert_eq!(chunk.text, "a界b");
+        assert!(state.dirty);
+    }
+
+    #[test]
+    fn rejects_out_of_order_editor_transactions() {
+        let session = session();
+        let started = session.begin_edit(1).expect("edit session should start");
+        let edit = TextEditDto {
+            from: TextPositionDto {
+                line: 0,
+                utf16_column: 0,
+            },
+            to: TextPositionDto {
+                line: 0,
+                utf16_column: 0,
+            },
+            insert: "!".to_owned(),
+        };
+        assert!(
+            session
+                .apply_edit_batch(started.draft_revision, vec![edit])
+                .is_ok()
+        );
+        assert!(matches!(
+            session.apply_edit_batch(started.draft_revision, Vec::new()),
+            Err(AppError::StaleDraftRevision)
+        ));
     }
 }

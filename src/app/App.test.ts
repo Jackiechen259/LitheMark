@@ -16,6 +16,14 @@ const service = vi.hoisted(() => ({
   loadLocalAsset: vi.fn(),
   checkDocumentChange: vi.fn(),
   openExternalUrl: vi.fn(),
+  beginEdit: vi.fn(),
+  getEditorChunk: vi.fn(),
+  applyEditBatch: vi.fn(),
+  previewEdit: vi.fn(),
+  saveEdit: vi.fn(),
+  prepareMerge: vi.fn(),
+  applyMergeResult: vi.fn(),
+  discardEdit: vi.fn(),
 }));
 const preferences = vi.hoisted(() => ({
   loadPreferences: vi.fn(),
@@ -69,6 +77,7 @@ describe("App", () => {
     preferences.saveRecentFiles.mockResolvedValue(undefined);
     service.closeDocument.mockResolvedValue(undefined);
     service.cancelSearch.mockResolvedValue(undefined);
+    service.discardEdit.mockResolvedValue(undefined);
     service.checkDocumentChange.mockResolvedValue({
       documentId: "none",
       changed: false,
@@ -166,5 +175,36 @@ describe("App", () => {
       wholeWord: false,
       limit: 500,
     });
+  });
+
+  it("loads the source in chunks and enters split edit mode", async () => {
+    service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\edit.md"]);
+    service.openDocument.mockResolvedValue(openResult("doc-edit", "edit.md"));
+    service.beginEdit.mockResolvedValue({
+      documentId: "doc-edit",
+      documentRevision: 1,
+      draftRevision: 1,
+      totalChars: 8,
+      lineCount: 1,
+      dirty: false,
+    });
+    service.getEditorChunk.mockResolvedValue({
+      documentId: "doc-edit",
+      draftRevision: 1,
+      startChar: 0,
+      nextChar: 8,
+      totalChars: 8,
+      text: "# Edited",
+    });
+
+    render(App);
+    await fireEvent.click(screen.getByRole("button", { name: "Open file" }));
+    await screen.findByRole("heading", { name: "Hello" });
+    await fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(await screen.findByLabelText("Markdown source editor")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Markdown preview" })).toBeVisible();
+    expect(service.beginEdit).toHaveBeenCalledWith("doc-edit", 1);
+    expect(service.getEditorChunk).toHaveBeenCalledWith("doc-edit", 0, 262_144, 1);
   });
 });

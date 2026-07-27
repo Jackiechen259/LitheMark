@@ -55,7 +55,7 @@
         onkeydown={(event) => handleTabKey(event, tabs.indexOf(tab))}
         onauxclick={(event) => handleAuxClick(event, tab.documentId)}
       >
-        <span>{tab.metadata.name}</span>
+        <span>{tab.dirty ? "● " : ""}{tab.metadata.name}</span>
       </button>
       <button
         type="button"

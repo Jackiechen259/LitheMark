@@ -9,6 +9,7 @@ function actions(): ShortcutActions {
     nextTab: vi.fn(),
     previousTab: vi.fn(),
     find: vi.fn(),
+    save: vi.fn(),
   };
 }
 
@@ -27,6 +28,13 @@ describe("handleShortcut", () => {
     handleShortcut(new KeyboardEvent("keydown", { key: "f", ctrlKey: true }), handlers);
 
     expect(handlers.find).toHaveBeenCalledOnce();
+  });
+
+  it("saves the active editor", () => {
+    const handlers = actions();
+    handleShortcut(new KeyboardEvent("keydown", { key: "s", ctrlKey: true }), handlers);
+
+    expect(handlers.save).toHaveBeenCalledOnce();
   });
 
   it("cycles tabs in both directions", () => {

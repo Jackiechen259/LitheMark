@@ -1,15 +1,18 @@
 # LitheMark
 
-LitheMark is a fast, lightweight, local-first Markdown reader built with Tauri 2, Rust,
+LitheMark is a fast, lightweight, local-first Markdown reader and editor built with Tauri 2, Rust,
 Svelte 5, TypeScript, and Vite.
 
-It opens files read-only, renders untrusted Markdown through a strict sanitizer, and keeps
+It renders untrusted Markdown through a strict sanitizer and keeps
 large documents responsive with cancellable background indexing and virtualized block
 rendering.
 
 ## Features
 
 - Open one or many `.md` and `.markdown` files in native tabs.
+- Edit Markdown in a resizable source/preview workspace with syntax highlighting, folding,
+  multi-cursor editing, completion, find/replace, and a command palette.
+- Save atomically with unsaved-change protection and three-way conflict merging.
 - Render headings, lists, tables, task lists, footnotes, code blocks, and safe inline HTML.
 - Navigate a generated outline, including headings in virtualized documents.
 - Search with case-sensitive and whole-word modes using `Ctrl/Cmd+F`.
@@ -42,7 +45,9 @@ first 48 blocks. Full background indexing took 1.83 s.
   permissions.
 - The application CSP blocks objects, frames, base URL changes, remote scripts, and remote
   images.
-- Files are read-only. LitheMark never writes back to an opened document.
+- Files are written only after an explicit save. Saves verify the on-disk baseline before an
+  atomic replacement; externally changed files enter a three-way merge flow instead of being
+  overwritten.
 
 See [`SECURITY.md`](SECURITY.md) for reporting instructions.
 
@@ -52,6 +57,8 @@ See [`SECURITY.md`](SECURITY.md) for reporting instructions.
 | --------------------------- | ------------------------------------ |
 | Open files                  | `Ctrl/Cmd+O`                         |
 | Find in document            | `Ctrl/Cmd+F`                         |
+| Save edited document        | `Ctrl/Cmd+S`                         |
+| Open editor command palette | `Ctrl/Cmd+Shift+P`, `F1`             |
 | Close active tab            | `Ctrl/Cmd+W`                         |
 | Next/previous tab           | `Ctrl/Cmd+Tab`, `Ctrl/Cmd+Shift+Tab` |
 | Move between focused tabs   | `Left`, `Right`, `Home`, `End`       |

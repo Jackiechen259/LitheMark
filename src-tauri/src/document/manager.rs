@@ -94,6 +94,8 @@ mod tests {
             encoding: "UTF-8".to_owned(),
             line_count: 1,
             source: "# Test".to_owned(),
+            had_utf8_bom: false,
+            fingerprint: blake3::hash(b"# Test").to_hex().to_string(),
         }
     }
 
