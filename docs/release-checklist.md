@@ -53,7 +53,22 @@ MSI as unvalidated until it passes on a clean release runner.
 
 ## Publication
 
-- Tag the reviewed commit as `v<version>`.
-- Attach installers and SHA-256 checksums.
-- Copy the matching changelog section into the release notes.
+Tag the reviewed commit as `v<version>` and push the tag. The `Release` workflow
+([`.github/workflows/release.yml`](../.github/workflows/release.yml)) then reruns the quality
+gates, confirms the tag matches `package.json`, builds the Windows NSIS bundle and portable
+executable, and opens a **draft** release with SHA-256 checksums and the matching changelog
+section.
+
+```shell
+git tag v<version>
+git push origin v<version>
+```
+
+Rerun a build for an existing tag from the Actions tab with the `Release` workflow's manual
+trigger.
+
+Before publishing the draft:
+
+- Install, launch, and uninstall the NSIS bundle on a clean Windows VM.
+- Confirm the attached checksums match the downloaded assets.
 - Clearly mark unsigned development builds; production releases should use platform signing.
