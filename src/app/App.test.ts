@@ -240,6 +240,45 @@ describe("App", () => {
     expect(updates.tauriUpdateGateway.check).toHaveBeenCalledOnce();
   });
 
+  it("suppresses the webview menu and offers its own document menu", async () => {
+    service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\readme.md"]);
+    service.openDocument.mockResolvedValue(openResult("doc-1", "readme.md"));
+
+    render(App);
+    await fireEvent.click(screen.getByRole("button", { name: "Open file" }));
+    const heading = await screen.findByRole("heading", { name: "Hello" });
+
+    const nativeMenu = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 40,
+      clientY: 60,
+    });
+    heading.dispatchEvent(nativeMenu);
+
+    expect(nativeMenu.defaultPrevented).toBe(true);
+    expect(await screen.findByRole("menu", { name: "Context menu" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Find in document/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Copy/ })).toBeDisabled();
+  });
+
+  it("closes a document from the tab context menu", async () => {
+    service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\readme.md"]);
+    service.openDocument.mockResolvedValue(openResult("doc-1", "readme.md"));
+
+    render(App);
+    await fireEvent.click(screen.getByRole("button", { name: "Open file" }));
+    const tab = await screen.findByRole("tab", { name: "readme.md" });
+
+    tab.dispatchEvent(
+      new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }),
+    );
+    await fireEvent.click(await screen.findByRole("menuitem", { name: /Close tab/ }));
+
+    await waitFor(() => expect(service.closeDocument).toHaveBeenCalledWith("doc-1"));
+    expect(screen.queryByRole("menu", { name: "Context menu" })).not.toBeInTheDocument();
+  });
+
   it("loads the source in chunks and enters split edit mode", async () => {
     service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\edit.md"]);
     service.openDocument.mockResolvedValue(openResult("doc-edit", "edit.md"));

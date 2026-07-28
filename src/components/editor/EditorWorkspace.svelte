@@ -130,6 +130,42 @@
   export function setDraftRevision(revision: number) {
     editor.setDraftRevision(revision);
   }
+
+  export function hasSelection() {
+    return editor.hasSelection();
+  }
+
+  export function cut() {
+    void editor.cutSelection();
+  }
+
+  export function copy() {
+    void editor.copySelection();
+  }
+
+  export function paste() {
+    void editor.pasteClipboard();
+  }
+
+  export function selectAll() {
+    editor.selectAllText();
+  }
+
+  export function undo() {
+    editor.undoEdit();
+  }
+
+  export function redo() {
+    editor.redoEdit();
+  }
+
+  export function find() {
+    editor.openFind();
+  }
+
+  export function commandPalette() {
+    editor.openCommandPalette();
+  }
 </script>
 
 <div class="editor-workspace" style={`--editor-percent: ${editorPercent}%`}>

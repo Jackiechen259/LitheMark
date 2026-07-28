@@ -42,7 +42,11 @@
 
 <div class="tab-bar" role="tablist" aria-label="Open documents">
   {#each tabs as tab (tab.documentId)}
-    <div class:active={tab.documentId === activeDocumentId} class="tab-item">
+    <div
+      class:active={tab.documentId === activeDocumentId}
+      class="tab-item"
+      data-tab-id={tab.documentId}
+    >
       <button
         type="button"
         id={`tab-${tab.documentId}`}

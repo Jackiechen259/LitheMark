@@ -6,7 +6,14 @@
     closeBracketsKeymap,
     completionKeymap,
   } from "@codemirror/autocomplete";
-  import { defaultKeymap, history, historyKeymap, redo, undo } from "@codemirror/commands";
+  import {
+    defaultKeymap,
+    history,
+    historyKeymap,
+    redo,
+    selectAll,
+    undo,
+  } from "@codemirror/commands";
   import { markdown } from "@codemirror/lang-markdown";
   import {
     bracketMatching,
@@ -41,6 +48,7 @@
   } from "@codemirror/view";
 
   import type { EditState, TextEdit } from "../../features/documents/document-types";
+  import { readClipboardText, writeClipboardText } from "../../lib/clipboard";
 
   let {
     source,
@@ -260,6 +268,65 @@
   export function hasConflictMarkers() {
     const content = view?.state.doc.toString() ?? source;
     return /^<<<<<<< |^\|\|\|\|\|\|\| |^=======\s*$|^>>>>>>> /m.test(content);
+  }
+
+  export function hasSelection() {
+    return view ? !view.state.selection.main.empty : false;
+  }
+
+  export async function copySelection() {
+    if (!view || view.state.selection.main.empty) return false;
+    const { from, to } = view.state.selection.main;
+    try {
+      await writeClipboardText(view.state.sliceDoc(from, to));
+      return true;
+    } catch (error) {
+      onError(error);
+      return false;
+    }
+  }
+
+  export async function cutSelection() {
+    if (!view || !(await copySelection())) return;
+    view.dispatch(view.state.replaceSelection(""));
+    view.focus();
+  }
+
+  export async function pasteClipboard() {
+    if (!view) return;
+    try {
+      const text = await readClipboardText();
+      view.dispatch(view.state.replaceSelection(text));
+      view.focus();
+    } catch (error) {
+      onError(error);
+    }
+  }
+
+  export function selectAllText() {
+    if (!view) return;
+    selectAll(view);
+    view.focus();
+  }
+
+  export function undoEdit() {
+    if (!view) return;
+    undo(view);
+    view.focus();
+  }
+
+  export function redoEdit() {
+    if (!view) return;
+    redo(view);
+    view.focus();
+  }
+
+  export function openFind() {
+    if (view) openSearchPanel(view);
+  }
+
+  export function openCommandPalette() {
+    paletteOpen = true;
   }
 </script>
 

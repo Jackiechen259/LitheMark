@@ -19,6 +19,7 @@ rendering.
 - Preserve per-tab scroll positions and the native window position and size.
 - Detect files changed or deleted on disk and offer a non-destructive reload.
 - Load PNG, JPEG, GIF, and WebP images from within the document directory.
+- Right-click any surface for LitheMark's own context menu instead of the webview's.
 - Switch between light and dark themes.
 - Open only `http`, `https`, and `mailto` links through the system handler.
 - Check for signed updates and install them on request.
@@ -77,6 +78,9 @@ See [`SECURITY.md`](SECURITY.md) for reporting instructions.
 | Close focused tab           | `Delete`                             |
 | Next/previous search result | `Enter`, `Shift+Enter`               |
 | Close search                | `Escape`                             |
+| Open the context menu       | `Menu`, `Shift+F10`                  |
+| Move within the menu        | `Up`, `Down`, `Home`, `End`          |
+| Close the menu              | `Escape`                             |
 
 ## Development
 

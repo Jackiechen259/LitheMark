@@ -4,6 +4,7 @@
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
 
+  import ContextMenu from "../components/common/ContextMenu.svelte";
   import EmptyState from "../components/common/EmptyState.svelte";
   import ErrorNotice from "../components/common/ErrorNotice.svelte";
   import UpdateNotice from "../components/common/UpdateNotice.svelte";
@@ -31,6 +32,7 @@
     applyMergeResult,
     discardEdit,
     openDocument,
+    openExternalUrl,
     reloadDocument,
     searchDocument,
     selectMarkdownFiles,
@@ -54,7 +56,15 @@
   } from "../features/settings/settings-service";
   import { tauriUpdateGateway } from "../features/updates/update-service";
   import { UpdateController } from "../features/updates/update-state.svelte";
+  import { readClipboardText, writeClipboardText } from "../lib/clipboard";
   import { normalizeAppError } from "../lib/errors";
+  import {
+    buildContextMenu,
+    classifyContextTarget,
+    type ContextMenuActions,
+    type ContextMenuEntry,
+    type FieldElement,
+  } from "./context-menu";
   import { handleShortcut } from "./shortcuts";
 
   const appState = new AppState();
@@ -80,6 +90,7 @@
   const editorSources = new SvelteMap<string, string>();
   let editorWorkspace = $state<EditorWorkspace | null>(null);
   let allowWindowClose = false;
+  let contextMenu = $state<{ x: number; y: number; entries: ContextMenuEntry[] } | null>(null);
 
   const activeTab = $derived(appState.activeTab);
   const statusText = $derived(
@@ -133,6 +144,12 @@
         },
       });
     window.addEventListener("keydown", listener);
+    // LitheMark always draws its own menu, so the webview's never gets to appear.
+    const contextMenuListener = (event: MouseEvent) => {
+      event.preventDefault();
+      showContextMenu(event);
+    };
+    window.addEventListener("contextmenu", contextMenuListener);
     const changePoll = window.setInterval(() => void pollDocumentChanges(), 2_000);
     let disposed = false;
     let stopIndexListener: UnlistenFn | undefined;
@@ -189,6 +206,7 @@
       stopCloseListener?.();
       window.clearInterval(changePoll);
       window.removeEventListener("keydown", listener);
+      window.removeEventListener("contextmenu", contextMenuListener);
     };
   });
 
@@ -527,6 +545,127 @@
     };
   }
 
+  function showContextMenu(event: MouseEvent) {
+    // Right-clicking the open menu keeps it, rather than stacking a second one.
+    if (event.target instanceof Element && event.target.closest(".context-menu")) return;
+
+    const selectionText = globalThis.getSelection?.()?.toString() ?? "";
+    const target = classifyContextTarget(event.target, selectionText);
+    const entries = buildContextMenu(target, contextMenuActions());
+    if (!entries.length) return;
+    contextMenu = { ...contextMenuAnchor(event), entries };
+  }
+
+  function contextMenuAnchor(event: MouseEvent) {
+    // The Menu key and Shift+F10 report no pointer position; anchor to the element.
+    if (event.clientX > 0 || event.clientY > 0) return { x: event.clientX, y: event.clientY };
+    if (!(event.target instanceof Element)) return { x: 0, y: 0 };
+    const rect = event.target.getBoundingClientRect();
+    return { x: rect.left, y: rect.bottom };
+  }
+
+  function contextMenuActions(): ContextMenuActions {
+    return {
+      hasDocument: Boolean(activeTab),
+      editing: Boolean(activeTab?.editing),
+      dirty: Boolean(activeTab?.dirty),
+      saving: activeTab?.editStatus === "saving",
+      tabCount: appState.tabs.length,
+      outlineOpen: appState.sidebarOpen,
+      editor: activeTab?.editing ? editorWorkspace : null,
+      openFile: () => void chooseDocuments(),
+      closeTab: (documentId) => void closeTab(documentId),
+      closeOtherTabs: (documentId) => void closeTabsExcept(documentId),
+      closeAllTabs: () => void closeTabsExcept(null),
+      copyTabPath: (documentId) => {
+        const tab = appState.tabs.find((candidate) => candidate.documentId === documentId);
+        if (tab) copyToClipboard(tab.metadata.displayPath);
+      },
+      openLink: (href) => void followLink(href),
+      copyText: copyToClipboard,
+      selectAllRegion,
+      fieldCut: (field) => void cutField(field),
+      fieldCopy: (field) => copyToClipboard(fieldSelection(field)),
+      fieldPaste: (field) => void pasteIntoField(field),
+      fieldSelectAll: (field) => {
+        field.focus();
+        field.select();
+      },
+      find: () => {
+        if (activeTab) searchOpen = true;
+      },
+      save: () => void saveActiveEdit(),
+      toggleEditing: () => void toggleEditing(),
+      toggleOutline: () => appState.toggleSidebar(),
+      toggleTheme,
+    };
+  }
+
+  function copyToClipboard(text: string) {
+    if (!text) return;
+    void writeClipboardText(text).catch(showError);
+  }
+
+  async function closeTabsExcept(documentId: string | null) {
+    for (const tab of [...appState.tabs]) {
+      if (tab.documentId !== documentId) await closeTab(tab.documentId);
+    }
+  }
+
+  async function followLink(href: string) {
+    if (href.startsWith("#")) {
+      const heading = activeTab?.headings.find((candidate) => candidate.slug === href.slice(1));
+      if (heading) jumpToHeading(heading);
+      return;
+    }
+    try {
+      await openExternalUrl(href);
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  function selectAllRegion(region: HTMLElement) {
+    const selection = globalThis.getSelection?.();
+    if (!selection) return;
+    const range = globalThis.document.createRange();
+    range.selectNodeContents(region);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function fieldSelection(field: FieldElement) {
+    return field.value.slice(field.selectionStart ?? 0, field.selectionEnd ?? 0);
+  }
+
+  async function cutField(field: FieldElement) {
+    const text = fieldSelection(field);
+    if (!text) return;
+    try {
+      await writeClipboardText(text);
+      replaceFieldSelection(field, "");
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  async function pasteIntoField(field: FieldElement) {
+    try {
+      replaceFieldSelection(field, await readClipboardText());
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  function replaceFieldSelection(field: FieldElement, text: string) {
+    const start = field.selectionStart ?? field.value.length;
+    const end = field.selectionEnd ?? start;
+    field.focus();
+    field.setRangeText(text, start, end, "end");
+    // Svelte bindings and the search panel both listen for input, not value writes.
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
   function formatBytes(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -694,3 +833,15 @@
     />
   {/if}
 </AppShell>
+
+{#if contextMenu}
+  <!-- Each opening is its own menu: reusing the instance would keep the old placement. -->
+  {#key contextMenu}
+    <ContextMenu
+      x={contextMenu.x}
+      y={contextMenu.y}
+      entries={contextMenu.entries}
+      onClose={() => (contextMenu = null)}
+    />
+  {/key}
+{/if}

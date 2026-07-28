@@ -2,6 +2,19 @@
 
 All notable changes to LitheMark are documented in this file.
 
+## Unreleased
+
+### Added
+
+- LitheMark's own context menu, with commands scoped to the surface under the pointer: tabs,
+  the rendered document and its links, the source editor, the outline, text fields, and the
+  application itself. It is keyboard reachable, clamped to the window, and dismissed by
+  `Escape`, scrolling, or a click elsewhere.
+
+### Changed
+
+- The webview's built-in context menu no longer appears anywhere in the application.
+
 ## 0.1.1 - 2026-07-28
 
 ### Added

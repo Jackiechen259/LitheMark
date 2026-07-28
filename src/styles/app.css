@@ -1000,6 +1000,65 @@
   background: var(--surface-hover);
 }
 
+.context-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 12.5rem;
+  max-width: min(22rem, calc(100vw - 1rem));
+  max-height: calc(100vh - 1rem);
+  padding: var(--space-1);
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-document);
+  box-shadow: var(--shadow-md);
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.context-menu-item:hover:not(:disabled),
+.context-menu-item:focus {
+  outline: none;
+  background: var(--surface-hover);
+}
+
+.context-menu-item:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.context-menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.context-menu-hint {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.context-menu-separator {
+  height: 1px;
+  margin: var(--space-1) 0.35rem;
+  background: var(--border-subtle);
+}
+
 .loading-spinner {
   width: 2rem;
   height: 2rem;
@@ -1096,6 +1155,7 @@
 @media (forced-colors: active) {
   button,
   input,
+  .context-menu,
   .error-notice,
   .document-change-notice {
     border: 1px solid CanvasText;
