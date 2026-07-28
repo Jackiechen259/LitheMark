@@ -98,12 +98,22 @@
       type="button"
       aria-label="Previous match"
       disabled={!matches.length}
-      onclick={onPrevious}>↑</button
+      onclick={onPrevious}
     >
-    <button type="button" aria-label="Next match" disabled={!matches.length} onclick={onNext}
-      >↓</button
-    >
-    <button type="button" aria-label="Close search" onclick={onClose}>×</button>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+        <path d="m4 10 4-4 4 4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+    <button type="button" aria-label="Next match" disabled={!matches.length} onclick={onNext}>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+        <path d="m4 6 4 4 4-4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+    <button type="button" aria-label="Close search" onclick={onClose}>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+        <path d="m4 4 8 8m0-8-8 8" stroke-width="1.6" stroke-linecap="round" />
+      </svg>
+    </button>
   </div>
 
   {#if query && matches.length}

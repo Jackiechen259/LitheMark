@@ -10,5 +10,9 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# Coding-agent working files: local settings, launch profiles, and the
+# worktree checkouts Claude Code creates under .claude/worktrees.
+.claude/
+
 # Local implementation plan; never commit or publish it.
 AGENT_PLAN_LitheMark.md
