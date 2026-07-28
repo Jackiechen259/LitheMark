@@ -153,7 +153,13 @@
             if (tab.dirty && !(await confirmDirtyTab(tab, "closing LitheMark"))) return;
           }
           allowWindowClose = true;
-          await currentWindow.close();
+          try {
+            await currentWindow.close();
+          } catch (error) {
+            // A refused close must not leave the window permanently unclosable.
+            allowWindowClose = false;
+            showError(error);
+          }
         })
         .then((unlisten) => {
           if (disposed) unlisten();
