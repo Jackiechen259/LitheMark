@@ -1,3 +1,5 @@
 edition = "2024"
-newline_style = "Native"
+# The repository normalizes text to LF via .gitattributes, so "Native" would
+# demand CRLF on Windows checkouts and fail `cargo fmt --check` there.
+newline_style = "Unix"
 use_field_init_shorthand = true
