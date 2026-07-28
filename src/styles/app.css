@@ -510,10 +510,14 @@
 }
 
 .document-workspace.with-outline {
-  grid-template-columns: 15rem minmax(0, 1fr);
+  grid-template-columns: clamp(14rem, 20vw, 20rem) minmax(0, 1fr);
 }
 
 .outline-panel {
+  /* --outline-row-pitch must match estimateSize in VirtualOutline.svelte. */
+  --outline-row-pitch: 34px;
+  --outline-row-gap: 0.2rem;
+  --outline-indent: 0.7rem;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
@@ -524,27 +528,28 @@
 }
 
 .outline-heading {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: var(--space-4) var(--space-4) var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
   color: var(--text-faint);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 750;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .outline-panel nav {
   display: grid;
-  gap: 0.15rem;
+  align-content: start;
+  gap: var(--outline-row-gap);
   overflow-y: auto;
   padding: 0 var(--space-2) var(--space-4);
 }
 
+/* No top padding here: it would offset the virtualizer's scroll coordinates. */
 .outline-panel .virtual-outline {
   min-height: 0;
   overflow-y: auto;
+  padding-bottom: var(--space-4);
 }
 
 .outline-panel .virtual-outline-list {
@@ -560,13 +565,14 @@
   top: 0;
   left: var(--space-2);
   width: calc(100% - var(--space-4));
-  height: 34px;
 }
 
 .outline-panel button {
+  position: relative;
   width: 100%;
-  padding: 0.42rem var(--space-2);
-  padding-left: calc(var(--space-2) + var(--outline-depth) * 0.75rem);
+  height: calc(var(--outline-row-pitch) - var(--outline-row-gap));
+  padding-right: var(--space-2);
+  padding-left: calc(var(--space-2) + var(--outline-depth) * var(--outline-indent));
   overflow: hidden;
   border: 0;
   border-radius: var(--radius-sm);
@@ -574,6 +580,8 @@
   background: transparent;
   cursor: pointer;
   font-size: 0.8rem;
+  font-weight: 500;
+  line-height: calc(var(--outline-row-pitch) - var(--outline-row-gap));
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -582,13 +590,43 @@
     color 0.15s;
 }
 
+/* A hairline rail marks how deep a nested heading sits. */
+.outline-panel button::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: calc(var(--space-2) + (var(--outline-depth) - 1) * var(--outline-indent) + 0.3rem);
+  width: 1px;
+  background: var(--border-strong);
+  opacity: calc(min(var(--outline-depth), 1) * 0.6);
+}
+
+.outline-panel button[data-level="1"] {
+  color: var(--text-primary);
+  font-weight: 620;
+}
+
+.outline-panel button[data-level="2"] {
+  color: color-mix(in srgb, var(--text-primary) 80%, var(--text-faint));
+  font-weight: 560;
+}
+
 .outline-panel button:hover {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
+.outline-panel button:hover::before {
+  background: var(--accent);
+}
+
+.outline-panel button:active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
 .outline-panel p {
-  margin: var(--space-2) var(--space-4);
+  margin: var(--space-3);
   color: var(--text-secondary);
   font-size: 0.8rem;
   line-height: 1.5;

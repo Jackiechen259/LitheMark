@@ -22,6 +22,7 @@
           <button
             type="button"
             title={heading.text}
+            data-level={heading.level}
             style={`--outline-depth: ${heading.level - 1}`}
             onclick={() => onSelect(heading)}
           >

@@ -12,10 +12,12 @@
   } = $props();
 
   let scrollElement = $state<HTMLElement | null>(null);
+  // Keep in step with --outline-row-pitch in app.css so both outline paths share a rhythm.
+  const rowPitch = 34;
   const virtualizer = createVirtualizer<HTMLElement, HTMLElement>({
     count: 0,
     getScrollElement: () => scrollElement,
-    estimateSize: () => 34,
+    estimateSize: () => rowPitch,
     overscan: 10,
   });
 
@@ -23,7 +25,7 @@
     $virtualizer.setOptions({
       count: headings.length,
       getScrollElement: () => scrollElement,
-      estimateSize: () => 34,
+      estimateSize: () => rowPitch,
       overscan: 10,
     });
   });
@@ -41,6 +43,7 @@
         type="button"
         title={heading.text}
         data-index={item.index}
+        data-level={heading.level}
         style={`--outline-depth: ${heading.level - 1}; transform: translateY(${item.start}px)`}
         onclick={() => onSelect(heading)}
       >
