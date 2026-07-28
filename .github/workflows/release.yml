@@ -85,10 +85,14 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path release-artifacts | Out-Null
           $nsis = "src-tauri/target/release/bundle/nsis"
-          foreach ($name in "LitheMark_${env:VERSION}_x64-setup.exe", "LitheMark_${env:VERSION}_x64-setup.nsis.zip") {
+          $installer = "LitheMark_${env:VERSION}_x64-setup.exe"
+          # Tauri v2 ships the NSIS installer itself as the updater artifact,
+          # with a detached .sig beside it. The v1 .nsis.zip is only produced
+          # when createUpdaterArtifacts is set to "v1Compatible".
+          foreach ($name in $installer, "$installer.sig") {
             if (-not (Test-Path "$nsis/$name")) { throw "Missing bundle artifact $nsis/$name." }
-            Copy-Item "$nsis/$name" "release-artifacts/$name"
           }
+          Copy-Item "$nsis/$installer" "release-artifacts/$installer"
           Copy-Item "src-tauri/target/release/lithemark.exe" "release-artifacts/LitheMark_${env:VERSION}_x64.exe"
           Get-ChildItem release-artifacts -File |
             Get-FileHash -Algorithm SHA256 |
@@ -108,8 +112,8 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          $archive = "LitheMark_${env:VERSION}_x64-setup.nsis.zip"
-          $signature = Get-Content "src-tauri/target/release/bundle/nsis/$archive.sig" -Raw
+          $installer = "LitheMark_${env:VERSION}_x64-setup.exe"
+          $signature = Get-Content "src-tauri/target/release/bundle/nsis/$installer.sig" -Raw
           @{
             version = $env:VERSION
             notes = (Get-Content release-artifacts/RELEASE_NOTES.md -Raw).Trim()
@@ -117,7 +121,7 @@ jobs:
             platforms = @{
               "windows-x86_64" = @{
                 signature = $signature.Trim()
-                url = "https://github.com/${env:REPOSITORY}/releases/download/${env:TAG}/$archive"
+                url = "https://github.com/${env:REPOSITORY}/releases/download/${env:TAG}/$installer"
               }
             }
           } | ConvertTo-Json -Depth 4 | Out-File release-artifacts/latest.json -Encoding utf8

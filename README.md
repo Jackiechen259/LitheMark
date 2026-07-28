@@ -127,8 +127,9 @@ On Windows, the validated release path is the NSIS bundle:
 pnpm desktop:bundle:windows
 ```
 
-Bundling also produces the signed updater archive, so it needs a signing key. Generate a
-personal one for local bundles and export it before building:
+Bundling also signs the installer for the updater and writes a detached `.sig` beside it, so
+it needs a signing key. Generate a personal one for local bundles and export it before
+building:
 
 ```shell
 pnpm tauri signer generate -w "$HOME/.tauri/lithemark.key"

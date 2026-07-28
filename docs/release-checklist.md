@@ -71,9 +71,11 @@ MSI as unvalidated until it passes on a clean release runner.
 
 Tag the reviewed commit as `v<version>` and push the tag. The `Release` workflow
 ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) then reruns the quality
-gates, confirms the tag matches `package.json`, builds and signs the Windows NSIS bundle,
-portable executable, and updater archive, and opens a **draft** release with SHA-256
-checksums, `latest.json`, and the matching changelog section.
+gates, confirms the tag matches `package.json`, builds and signs the Windows NSIS bundle and
+portable executable, and opens a **draft** release with SHA-256 checksums, `latest.json`, and
+the matching changelog section. Under Tauri v2 the NSIS installer doubles as the updater
+artifact; the build emits a detached `<installer>.sig` whose contents are embedded in
+`latest.json`, so there is no separate `.nsis.zip`.
 
 ```shell
 git tag v<version>
@@ -88,11 +90,11 @@ Before publishing the draft:
 - Install, launch, and uninstall the NSIS bundle on a clean Windows VM.
 - Confirm the attached checksums match the downloaded assets.
 - Confirm `latest.json` carries the new version and a `windows-x86_64` URL that points at this
-  tag's `.nsis.zip`.
+  tag's `-setup.exe`.
 - Clearly mark unsigned development builds; production releases should use platform signing.
 
 Publishing the draft is what ships the update: installed copies read
 `releases/latest/download/latest.json`, which resolves only for a published, non-prerelease
 release. After publishing, verify the rollout from an older installed build — it should offer
-the new version, install it, and restart. A release published without its `.nsis.zip` and
+the new version, install it, and restart. A release published without its `-setup.exe` and
 `latest.json` assets leaves every installed copy unable to update.
