@@ -34,7 +34,7 @@
 <div class="update-notice" class:failed={status === "error"} role="status">
   <span>{message}</span>
   {#if status === "downloading" && percent !== null}
-    <progress max="1" value={percent} aria-label="Update download progress"></progress>
+    <progress max="1" value={percent ?? 0} aria-label="Update download progress"></progress>
   {/if}
   <div>
     {#if status === "available"}
