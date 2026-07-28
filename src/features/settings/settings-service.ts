@@ -7,18 +7,21 @@ const preferencesStore = new LazyStore("preferences.json", {
   defaults: {
     theme: "light",
     recentFiles: [],
+    updateChecksEnabled: true,
   },
 });
 
 export async function loadPreferences(): Promise<AppPreferences> {
-  const [theme, recentFiles] = await Promise.all([
+  const [theme, recentFiles, updateChecksEnabled] = await Promise.all([
     preferencesStore.get<Theme>("theme"),
     preferencesStore.get<RecentFile[]>("recentFiles"),
+    preferencesStore.get<boolean>("updateChecksEnabled"),
   ]);
 
   return {
     theme: theme === "dark" ? "dark" : "light",
     recentFiles: sanitizeRecentFiles(recentFiles),
+    updateChecksEnabled: updateChecksEnabled !== false,
   };
 }
 
@@ -28,6 +31,10 @@ export async function saveTheme(theme: Theme): Promise<void> {
 
 export async function saveRecentFiles(recentFiles: RecentFile[]): Promise<void> {
   await preferencesStore.set("recentFiles", sanitizeRecentFiles(recentFiles));
+}
+
+export async function saveUpdateChecksEnabled(enabled: boolean): Promise<void> {
+  await preferencesStore.set("updateChecksEnabled", enabled);
 }
 
 function sanitizeRecentFiles(value: unknown): RecentFile[] {

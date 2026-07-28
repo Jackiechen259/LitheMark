@@ -32,6 +32,22 @@ rendering before release.
 - Test at 100%, 150%, and 200% display scaling.
 - Navigate tabs and search without a mouse and inspect focus visibility.
 
+## Update signing (one time)
+
+The updater only accepts archives signed with the key whose public half is in
+`src-tauri/tauri.conf.json`.
+
+```shell
+pnpm tauri signer generate -w "$HOME/.tauri/lithemark.key"
+```
+
+- Commit the printed public key as `plugins.updater.pubkey`.
+- Store the private key as the `TAURI_SIGNING_PRIVATE_KEY` repository secret and its password
+  as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+- Back up the private key offline. Losing it means shipped versions can no longer update
+  themselves; every user has to reinstall manually.
+- `pnpm release:check` fails while the public key is missing.
+
 ## Windows bundle
 
 ```shell
@@ -55,9 +71,9 @@ MSI as unvalidated until it passes on a clean release runner.
 
 Tag the reviewed commit as `v<version>` and push the tag. The `Release` workflow
 ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) then reruns the quality
-gates, confirms the tag matches `package.json`, builds the Windows NSIS bundle and portable
-executable, and opens a **draft** release with SHA-256 checksums and the matching changelog
-section.
+gates, confirms the tag matches `package.json`, builds and signs the Windows NSIS bundle,
+portable executable, and updater archive, and opens a **draft** release with SHA-256
+checksums, `latest.json`, and the matching changelog section.
 
 ```shell
 git tag v<version>
@@ -71,4 +87,12 @@ Before publishing the draft:
 
 - Install, launch, and uninstall the NSIS bundle on a clean Windows VM.
 - Confirm the attached checksums match the downloaded assets.
+- Confirm `latest.json` carries the new version and a `windows-x86_64` URL that points at this
+  tag's `.nsis.zip`.
 - Clearly mark unsigned development builds; production releases should use platform signing.
+
+Publishing the draft is what ships the update: installed copies read
+`releases/latest/download/latest.json`, which resolves only for a published, non-prerelease
+release. After publishing, verify the rollout from an older installed build — it should offer
+the new version, install it, and restart. A release published without its `.nsis.zip` and
+`latest.json` assets leaves every installed copy unable to update.

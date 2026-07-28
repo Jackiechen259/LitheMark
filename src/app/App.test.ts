@@ -29,10 +29,18 @@ const preferences = vi.hoisted(() => ({
   loadPreferences: vi.fn(),
   saveTheme: vi.fn(),
   saveRecentFiles: vi.fn(),
+  saveUpdateChecksEnabled: vi.fn(),
+}));
+const updates = vi.hoisted(() => ({
+  tauriUpdateGateway: {
+    check: vi.fn(),
+    relaunch: vi.fn(),
+  },
 }));
 
 vi.mock("../features/documents/document-service", () => service);
 vi.mock("../features/settings/settings-service", () => preferences);
+vi.mock("../features/updates/update-service", () => updates);
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(vi.fn()),
 }));
@@ -72,9 +80,17 @@ describe("App", () => {
   beforeEach(() => {
     Object.values(service).forEach((mock) => mock.mockReset());
     Object.values(preferences).forEach((mock) => mock.mockReset());
-    preferences.loadPreferences.mockResolvedValue({ theme: "light", recentFiles: [] });
+    Object.values(updates.tauriUpdateGateway).forEach((mock) => mock.mockReset());
+    preferences.loadPreferences.mockResolvedValue({
+      theme: "light",
+      recentFiles: [],
+      updateChecksEnabled: true,
+    });
     preferences.saveTheme.mockResolvedValue(undefined);
     preferences.saveRecentFiles.mockResolvedValue(undefined);
+    preferences.saveUpdateChecksEnabled.mockResolvedValue(undefined);
+    updates.tauriUpdateGateway.check.mockResolvedValue(null);
+    updates.tauriUpdateGateway.relaunch.mockResolvedValue(undefined);
     service.closeDocument.mockResolvedValue(undefined);
     service.cancelSearch.mockResolvedValue(undefined);
     service.discardEdit.mockResolvedValue(undefined);
@@ -175,6 +191,53 @@ describe("App", () => {
       wholeWord: false,
       limit: 500,
     });
+  });
+
+  it("offers an update found by the launch check", async () => {
+    const install = vi.fn(async () => {});
+    updates.tauriUpdateGateway.check.mockResolvedValue({
+      version: "0.2.0",
+      currentVersion: "0.1.0",
+      install,
+    });
+
+    render(App);
+
+    expect(await screen.findByText("LitheMark 0.2.0 is available.")).toBeVisible();
+    await fireEvent.click(screen.getByRole("button", { name: "Install and restart" }));
+    await waitFor(() => expect(install).toHaveBeenCalledOnce());
+    expect(updates.tauriUpdateGateway.relaunch).toHaveBeenCalledOnce();
+  });
+
+  it("never contacts the network when update checks are switched off", async () => {
+    preferences.loadPreferences.mockResolvedValue({
+      theme: "light",
+      recentFiles: [],
+      updateChecksEnabled: false,
+    });
+
+    render(App);
+    const toggle = await screen.findByRole("checkbox", { name: /Check for updates/ });
+    await waitFor(() => expect(toggle).not.toBeChecked());
+    expect(updates.tauriUpdateGateway.check).not.toHaveBeenCalled();
+
+    await fireEvent.click(toggle);
+    expect(preferences.saveUpdateChecksEnabled).toHaveBeenCalledWith(true);
+    expect(updates.tauriUpdateGateway.check).not.toHaveBeenCalled();
+  });
+
+  it("checks for updates on demand", async () => {
+    preferences.loadPreferences.mockResolvedValue({
+      theme: "light",
+      recentFiles: [],
+      updateChecksEnabled: false,
+    });
+
+    render(App);
+    await fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+
+    expect(await screen.findByRole("button", { name: "Up to date" })).toBeVisible();
+    expect(updates.tauriUpdateGateway.check).toHaveBeenCalledOnce();
   });
 
   it("loads the source in chunks and enters split edit mode", async () => {

@@ -6,6 +6,7 @@
 
   import EmptyState from "../components/common/EmptyState.svelte";
   import ErrorNotice from "../components/common/ErrorNotice.svelte";
+  import UpdateNotice from "../components/common/UpdateNotice.svelte";
   import DocumentChangedNotice from "../components/document/DocumentChangedNotice.svelte";
   import DocumentLoading from "../components/document/DocumentLoading.svelte";
   import DocumentView from "../components/document/DocumentView.svelte";
@@ -49,11 +50,16 @@
     loadPreferences,
     saveRecentFiles,
     saveTheme,
+    saveUpdateChecksEnabled,
   } from "../features/settings/settings-service";
+  import { tauriUpdateGateway } from "../features/updates/update-service";
+  import { UpdateController } from "../features/updates/update-state.svelte";
   import { normalizeAppError } from "../lib/errors";
   import { handleShortcut } from "./shortcuts";
 
   const appState = new AppState();
+  const updates = new UpdateController(tauriUpdateGateway);
+  let updateChecksEnabled = $state(true);
   let openingCount = $state(0);
   let errorMessage = $state("");
   let attemptedPath = $state<string | null>(null);
@@ -82,6 +88,25 @@
       : openingCount > 0
         ? "Opening document…"
         : "Ready",
+  );
+
+  const updateNoticeVisible = $derived(
+    updates.status === "available" ||
+      updates.status === "downloading" ||
+      updates.status === "installing" ||
+      updates.status === "error",
+  );
+  const updateBusy = $derived(
+    updates.status === "checking" ||
+      updates.status === "downloading" ||
+      updates.status === "installing",
+  );
+  const updateActionLabel = $derived(
+    updates.status === "checking"
+      ? "Checking…"
+      : updates.status === "upToDate"
+        ? "Up to date"
+        : "Check for updates",
   );
 
   $effect(() => {
@@ -144,6 +169,9 @@
       .then((preferences) => {
         if (!themeTouched) theme = preferences.theme;
         recentFiles = preferences.recentFiles;
+        updateChecksEnabled = preferences.updateChecksEnabled;
+        // The only network request LitheMark makes, and only with consent.
+        if (updateChecksEnabled) void updates.check({ silent: true });
       })
       .catch(() => {
         // The reader remains fully usable when preferences are unavailable.
@@ -467,6 +495,14 @@
     errorMessage = normalizeAppError(error).message;
   }
 
+  function setUpdateChecks(enabled: boolean) {
+    updateChecksEnabled = enabled;
+    if (!enabled) updates.dismiss();
+    void saveUpdateChecksEnabled(enabled).catch(() => {
+      // The choice still applies to the current session.
+    });
+  }
+
   function toggleTheme() {
     themeTouched = true;
     theme = theme === "light" ? "dark" : "light";
@@ -518,7 +554,36 @@
           onClose={(documentId) => void closeTab(documentId)}
         />
       {/if}
+      {#if updateNoticeVisible}
+        <UpdateNotice
+          status={updates.status}
+          version={updates.available?.version}
+          percent={updates.percent}
+          errorMessage={updates.errorMessage}
+          onInstall={() => void updates.install()}
+          onDismiss={() => updates.dismiss()}
+        />
+      {/if}
     </div>
+  {/snippet}
+
+  {#snippet statusActions()}
+    <label class="update-toggle">
+      <input
+        type="checkbox"
+        checked={updateChecksEnabled}
+        onchange={(event) => setUpdateChecks(event.currentTarget.checked)}
+      />
+      Check for updates automatically
+    </label>
+    <button
+      type="button"
+      class="status-button"
+      disabled={updateBusy}
+      onclick={() => void updates.check()}
+    >
+      {updateActionLabel}
+    </button>
   {/snippet}
 
   {#if openingCount > 0 && !activeTab}

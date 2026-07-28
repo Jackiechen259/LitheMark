@@ -132,6 +132,7 @@ export interface RecentFile {
 export interface AppPreferences {
   theme: Theme;
   recentFiles: RecentFile[];
+  updateChecksEnabled: boolean;
 }
 
 export interface AppErrorDto {

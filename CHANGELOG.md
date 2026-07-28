@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added signed automatic update checks on launch, an explicit install-and-restart prompt, a
+  manual check, and a switch that disables update checking entirely.
 - Added a split Markdown source editor and sanitized adaptive preview.
 - Added syntax highlighting, folding, completion, multi-cursor editing, find/replace, and a
   command palette.

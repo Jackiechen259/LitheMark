@@ -77,6 +77,7 @@
 .app-status {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
   min-height: 1.85rem;
   padding: var(--space-1) var(--space-4);
   border-top: 1px solid var(--border-subtle);
@@ -85,6 +86,58 @@
   backdrop-filter: blur(18px) saturate(1.5);
   font-size: 0.72rem;
   letter-spacing: 0.015em;
+}
+
+.app-status > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.app-status-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.update-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.update-toggle input {
+  width: 0.85rem;
+  height: 0.85rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.status-button {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: var(--surface-document);
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.status-button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.status-button:disabled {
+  cursor: progress;
+  opacity: 0.65;
 }
 
 .empty-state {
@@ -582,6 +635,56 @@
 .document-change-notice button:hover:not(:disabled) {
   border-color: var(--border-strong);
   background: var(--surface-hover);
+}
+
+.update-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-app));
+  color: var(--text-primary);
+  font: 0.8rem/1.4 var(--font-ui);
+}
+
+.update-notice.failed {
+  border-bottom-color: color-mix(in srgb, var(--danger) 35%, var(--border-subtle));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-app));
+}
+
+.update-notice progress {
+  width: 8rem;
+  height: 0.4rem;
+  accent-color: var(--accent);
+}
+
+.update-notice > div {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.update-notice button {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-document);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.update-notice button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
+.update-notice button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .search-controls {

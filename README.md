@@ -21,6 +21,18 @@ rendering.
 - Load PNG, JPEG, GIF, and WebP images from within the document directory.
 - Switch between light and dark themes.
 - Open only `http`, `https`, and `mailto` links through the system handler.
+- Check for signed updates and install them on request.
+
+## Updates
+
+LitheMark checks for a newer signed release on launch and offers to install it; nothing is
+downloaded until you choose to. The update check is the only network request the application
+makes, and the status bar has a switch that turns it off along with a manual **Check for
+updates** button.
+
+Update archives are verified against the public key in
+[`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json) before they are installed, so a
+tampered or unsigned archive is rejected.
 
 ## Large documents
 
@@ -115,7 +127,20 @@ On Windows, the validated release path is the NSIS bundle:
 pnpm desktop:bundle:windows
 ```
 
-See [`docs/release-checklist.md`](docs/release-checklist.md) for release verification.
+Bundling also produces the signed updater archive, so it needs a signing key. Generate a
+personal one for local bundles and export it before building:
+
+```shell
+pnpm tauri signer generate -w "$HOME/.tauri/lithemark.key"
+```
+
+```shell
+$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$HOME/.tauri/lithemark.key" -Raw
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<key password>"
+```
+
+Released builds are signed in CI with the repository's key; see
+[`docs/release-checklist.md`](docs/release-checklist.md) for release verification.
 
 ## License
 
