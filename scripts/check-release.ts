@@ -27,4 +27,21 @@ if (String(tauriConfig.identifier).endsWith(".app")) {
   throw new Error("The Tauri bundle identifier must not end with .app.");
 }
 
+const updater = tauriConfig.plugins?.updater;
+
+if (tauriConfig.bundle?.createUpdaterArtifacts !== true) {
+  throw new Error(
+    "bundle.createUpdaterArtifacts must be true so releases can be updated in place.",
+  );
+}
+if (!updater?.pubkey) {
+  throw new Error(
+    "plugins.updater.pubkey is empty. Generate a key pair with `pnpm tauri signer generate`, " +
+      "commit the public key, and store the private key as the TAURI_SIGNING_PRIVATE_KEY secret.",
+  );
+}
+if (!Array.isArray(updater.endpoints) || updater.endpoints.length === 0) {
+  throw new Error("plugins.updater.endpoints must list at least one update manifest URL.");
+}
+
 console.log(`Release metadata is consistent for LitheMark ${expected}.`);

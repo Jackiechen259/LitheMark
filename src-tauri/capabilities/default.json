@@ -7,7 +7,9 @@
     "core:default",
     "dialog:allow-open",
     "opener:allow-open-url",
+    "process:allow-restart",
     "store:default",
+    "updater:default",
     "window-state:default"
   ]
 }

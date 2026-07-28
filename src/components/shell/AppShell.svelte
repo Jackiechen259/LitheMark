@@ -5,10 +5,12 @@
     header,
     children,
     status,
+    statusActions,
   }: {
     header: Snippet;
     children: Snippet;
     status: string;
+    statusActions?: Snippet;
   } = $props();
 </script>
 
@@ -22,5 +24,10 @@
     {@render children()}
   </main>
 
-  <footer class="app-status" role="status" aria-live="polite">{status}</footer>
+  <footer class="app-status">
+    <span role="status" aria-live="polite">{status}</span>
+    {#if statusActions}
+      <div class="app-status-actions">{@render statusActions()}</div>
+    {/if}
+  </footer>
 </div>
