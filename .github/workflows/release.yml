@@ -94,10 +94,13 @@ jobs:
           }
           Copy-Item "$nsis/$installer" "release-artifacts/$installer"
           Copy-Item "src-tauri/target/release/lithemark.exe" "release-artifacts/LitheMark_${env:VERSION}_x64.exe"
-          Get-ChildItem release-artifacts -File |
+          # Hash everything before opening the output file: Get-ChildItem
+          # streams, so writing SHA256SUMS.txt inside the same pipeline makes
+          # the enumeration reach a file Out-File still holds open.
+          $checksums = Get-ChildItem release-artifacts -File |
             Get-FileHash -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
-            Out-File -FilePath release-artifacts/SHA256SUMS.txt -Encoding utf8
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" }
+          $checksums | Out-File -FilePath release-artifacts/SHA256SUMS.txt -Encoding utf8
 
       - name: Generate release notes
         shell: pwsh
