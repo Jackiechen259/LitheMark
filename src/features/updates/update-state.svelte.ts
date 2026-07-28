@@ -2,13 +2,7 @@ import { normalizeAppError } from "../../lib/errors";
 import type { PendingUpdate, UpdateGateway, UpdateSummary } from "./update-service";
 
 export type UpdateStatus =
-  | "idle"
-  | "checking"
-  | "available"
-  | "downloading"
-  | "installing"
-  | "upToDate"
-  | "error";
+  "idle" | "checking" | "available" | "downloading" | "installing" | "upToDate" | "error";
 
 export class UpdateController {
   status = $state<UpdateStatus>("idle");
