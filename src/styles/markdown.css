@@ -27,8 +27,8 @@
   padding: 3.5rem 0 6rem;
   color: var(--text-primary);
   font-family: var(--font-content);
-  font-size: 1rem;
-  line-height: 1.72;
+  font-size: 1.02rem;
+  line-height: 1.75;
   overflow-wrap: break-word;
 }
 
@@ -73,10 +73,12 @@
   display: block;
   width: max-content;
   margin: -2rem auto 0;
-  padding: 0.35rem 0.7rem;
+  padding: 0.35rem 0.8rem;
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
-  background: var(--surface-app);
+  background: var(--surface-elevated);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-md);
   color: var(--text-secondary);
   content: "Indexing document…";
   font: 0.75rem/1.2 var(--font-ui);
@@ -92,10 +94,37 @@
 .markdown-document h4,
 .markdown-document h5,
 .markdown-document h6 {
-  margin: 1.8em 0 0.65em;
+  margin: 1.9em 0 0.65em;
   font-family: var(--font-ui);
+  font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.025em;
+}
+
+.markdown-document h1 {
+  font-size: 2.05em;
+  letter-spacing: -0.035em;
+}
+
+.markdown-document h2 {
+  font-size: 1.5em;
+}
+
+.markdown-document h3 {
+  font-size: 1.22em;
+}
+
+.markdown-document h4 {
+  font-size: 1.05em;
+}
+
+.markdown-document h5,
+.markdown-document h6 {
+  font-size: 0.95em;
+}
+
+.markdown-document h6 {
+  color: var(--text-secondary);
 }
 
 .markdown-document h1,
@@ -113,18 +142,36 @@
   margin: 1em 0;
 }
 
+.markdown-document li + li {
+  margin-top: 0.3em;
+}
+
+.markdown-document li::marker {
+  color: var(--text-faint);
+}
+
 .markdown-document a {
   color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
   text-decoration-thickness: 0.08em;
   text-underline-offset: 0.18em;
+  transition:
+    color 0.15s,
+    text-decoration-color 0.15s;
+}
+
+.markdown-document a:hover {
+  color: var(--accent-strong);
+  text-decoration-color: currentColor;
 }
 
 .markdown-document img {
   display: block;
   max-width: 100%;
   height: auto;
-  margin: 1.25rem auto;
-  border-radius: 0.5rem;
+  margin: 1.5rem auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
 }
 
 .markdown-document img.local-image-loading {
@@ -137,36 +184,50 @@
   min-width: 8rem;
   min-height: 2.5rem;
   border: 1px dashed var(--border-strong);
+  box-shadow: none;
   color: var(--text-secondary);
 }
 
 .markdown-document blockquote {
-  padding: 0.15rem 1rem;
-  border-left: 0.25rem solid var(--accent);
+  padding: 0.6rem 1.25rem;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   color: var(--text-secondary);
   background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
 
+.markdown-document blockquote > :first-child {
+  margin-top: 0;
+}
+
+.markdown-document blockquote > :last-child {
+  margin-bottom: 0;
+}
+
 .markdown-document code {
-  padding: 0.12em 0.35em;
+  padding: 0.13em 0.4em;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
   border-radius: 0.35rem;
-  background: var(--surface-hover);
+  background: color-mix(in srgb, var(--surface-hover) 70%, transparent);
   font-family: var(--font-mono);
-  font-size: 0.9em;
+  font-size: 0.88em;
 }
 
 .markdown-document pre {
   overflow-x: auto;
-  padding: 1rem 1.1rem;
+  padding: 1.05rem 1.25rem;
   border: 1px solid var(--border-subtle);
-  border-radius: 0.7rem;
-  background: var(--surface-app);
-  line-height: 1.55;
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-sm);
+  line-height: 1.6;
 }
 
 .markdown-document pre code {
   padding: 0;
+  border: 0;
   background: transparent;
+  font-size: 0.86em;
 }
 
 .markdown-document table {
@@ -174,25 +235,57 @@
   width: max-content;
   max-width: 100%;
   overflow-x: auto;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
   font-family: var(--font-ui);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
 }
 
 .markdown-document th,
 .markdown-document td {
-  padding: 0.55rem 0.8rem;
-  border: 1px solid var(--border-subtle);
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--border-subtle);
   text-align: left;
 }
 
+.markdown-document th + th,
+.markdown-document td + td {
+  border-left: 1px solid var(--border-subtle);
+}
+
 .markdown-document th {
-  background: var(--surface-hover);
+  background: var(--surface-panel);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.markdown-document tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-panel) 40%, transparent);
+}
+
+.markdown-document tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .markdown-document hr {
   height: 1px;
-  margin: 2rem 0;
+  margin: 2.5rem auto;
   border: 0;
-  background: var(--border-subtle);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border-strong) 20%,
+    var(--border-strong) 80%,
+    transparent
+  );
+}
+
+.markdown-document input[type="checkbox"] {
+  margin-right: 0.45em;
+  accent-color: var(--accent);
 }

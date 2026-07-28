@@ -55,7 +55,10 @@
         onkeydown={(event) => handleTabKey(event, tabs.indexOf(tab))}
         onauxclick={(event) => handleAuxClick(event, tab.documentId)}
       >
-        <span>{tab.dirty ? "● " : ""}{tab.metadata.name}</span>
+        {#if tab.dirty}
+          <span class="tab-dirty-dot" aria-hidden="true"></span>
+        {/if}
+        <span class="tab-label">{tab.metadata.name}</span>
       </button>
       <button
         type="button"
@@ -63,7 +66,9 @@
         aria-label={`Close ${tab.metadata.name}`}
         onclick={() => onClose(tab.documentId)}
       >
-        ×
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="m4 4 8 8m0-8-8 8" stroke-width="1.6" stroke-linecap="round" />
+        </svg>
       </button>
     </div>
   {/each}
