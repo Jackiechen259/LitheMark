@@ -1,6 +1,6 @@
 [package]
 name = "lithemark"
-version = "0.1.0"
+version = "0.1.1"
 description = "A fast, lightweight, local-first Markdown reader"
 authors = ["LitheMark contributors"]
 edition = "2024"

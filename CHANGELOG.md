@@ -1,16 +1,30 @@
 # Changelog
 
-## Unreleased
+All notable changes to LitheMark are documented in this file.
 
-- Added signed automatic update checks on launch, an explicit install-and-restart prompt, a
-  manual check, and a switch that disables update checking entirely.
-- Added a split Markdown source editor and sanitized adaptive preview.
-- Added syntax highlighting, folding, completion, multi-cursor editing, find/replace, and a
-  command palette.
-- Added versioned Rope-backed drafts, explicit save, unsaved tab protection, atomic writes, and
+## 0.1.1 - 2026-07-28
+
+### Added
+
+- Signed automatic update checks on launch, an explicit install-and-restart prompt, a manual
+  check, and a switch that disables update checking entirely.
+- A split Markdown source editor and sanitized adaptive preview.
+- Syntax highlighting, folding, completion, multi-cursor editing, find/replace, and a command
+  palette.
+- Versioned Rope-backed drafts, explicit save, unsaved tab protection, atomic writes, and
   three-way handling for files changed outside LitheMark.
 
-All notable changes to LitheMark are documented in this file.
+### Fixed
+
+- The window refused to close. Every close request routes through the unsaved-work guard, and
+  the main capability granted neither `core:window:allow-close` nor `core:window:allow-destroy`,
+  so both of the guard's exit paths were denied.
+
+### Changed
+
+- The outline panel scales with the window instead of holding a fixed width, its virtual and
+  plain rows share one height and indent scale, and heading depth is now legible through weight,
+  colour, and an indent rail.
 
 ## 0.1.0 - 2026-07-26
 
