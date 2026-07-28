@@ -28,10 +28,11 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check frontend
-        run: |
-          pnpm format:check
-          pnpm check
+      - name: Check frontend formatting
+        run: pnpm format:check
+
+      - name: Check frontend types
+        run: pnpm check
 
       - name: Test frontend
         run: pnpm test
