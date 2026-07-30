@@ -117,6 +117,17 @@ pnpm fixtures:large -- --sizes=1,10,50
 cargo run --release --manifest-path src-tauri/Cargo.toml --example benchmark_open -- fixtures/generated/large-1mb.md fixtures/generated/large-10mb.md fixtures/generated/large-50mb.md
 ```
 
+[`app-icon.svg`](app-icon.svg) is the single source for every application icon. After editing
+it, regenerate the bundled set and refresh the webview favicon:
+
+```shell
+pnpm tauri icon app-icon.svg
+```
+
+```shell
+cp src-tauri/icons/128x128.png static/favicon.png
+```
+
 ## Packaging
 
 Build the optimized application without a platform installer:
