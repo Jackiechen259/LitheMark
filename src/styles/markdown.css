@@ -22,13 +22,13 @@
 }
 
 .markdown-document {
-  width: min(calc(100% - 3rem), 54rem);
+  width: min(calc(100% - 3rem), 48rem);
   margin: 0 auto;
   padding: 3.5rem 0 6rem;
   color: var(--text-primary);
   font-family: var(--font-content);
-  font-size: 1.02rem;
-  line-height: 1.75;
+  font-size: 1.04rem;
+  line-height: 1.78;
   overflow-wrap: break-word;
 }
 
@@ -77,7 +77,6 @@
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
   background: var(--surface-elevated);
-  backdrop-filter: blur(12px);
   box-shadow: var(--shadow-md);
   color: var(--text-secondary);
   content: "Indexing document…";
@@ -88,49 +87,52 @@
   scroll-margin-top: 1rem;
 }
 
+/* Headings stay in the serif voice of the page, like a typeset book. */
 .markdown-document h1,
 .markdown-document h2,
 .markdown-document h3,
 .markdown-document h4,
 .markdown-document h5,
 .markdown-document h6 {
-  margin: 1.9em 0 0.65em;
-  font-family: var(--font-ui);
-  font-weight: 700;
+  margin: 2em 0 0.6em;
+  font-family: var(--font-content);
+  font-weight: 650;
   line-height: 1.25;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.012em;
 }
 
 .markdown-document h1 {
-  font-size: 2.05em;
-  letter-spacing: -0.035em;
+  font-size: 2.15em;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .markdown-document h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 75%, transparent);
   font-size: 1.5em;
 }
 
 .markdown-document h3 {
-  font-size: 1.22em;
+  font-size: 1.24em;
 }
 
 .markdown-document h4 {
-  font-size: 1.05em;
+  font-size: 1.06em;
 }
 
+/* The smallest headings switch to labelled small caps, like editorial kickers. */
 .markdown-document h5,
 .markdown-document h6 {
-  font-size: 0.95em;
+  font-family: var(--font-ui);
+  font-size: 0.82em;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
 .markdown-document h6 {
   color: var(--text-secondary);
-}
-
-.markdown-document h1,
-.markdown-document h2 {
-  padding-bottom: 0.35em;
-  border-bottom: 1px solid var(--border-subtle);
 }
 
 .markdown-document p,
@@ -147,13 +149,13 @@
 }
 
 .markdown-document li::marker {
-  color: var(--text-faint);
+  color: var(--accent-2);
 }
 
 .markdown-document a {
   color: var(--accent);
-  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
-  text-decoration-thickness: 0.08em;
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  text-decoration-thickness: 0.07em;
   text-underline-offset: 0.18em;
   transition:
     color 0.15s,
@@ -170,8 +172,9 @@
   max-width: 100%;
   height: auto;
   margin: 1.5rem auto;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .markdown-document img.local-image-loading {
@@ -189,11 +192,14 @@
 }
 
 .markdown-document blockquote {
-  padding: 0.6rem 1.25rem;
-  border-left: 3px solid var(--accent);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: 0.15rem 0 0.15rem 1.25rem;
+  border-left: 2px solid var(--accent-2);
   color: var(--text-secondary);
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  font-style: italic;
+}
+
+.markdown-document blockquote em {
+  font-style: normal;
 }
 
 .markdown-document blockquote > :first-child {
@@ -206,11 +212,11 @@
 
 .markdown-document code {
   padding: 0.13em 0.4em;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
-  border-radius: 0.35rem;
-  background: color-mix(in srgb, var(--surface-hover) 70%, transparent);
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--surface-active) 55%, transparent);
   font-family: var(--font-mono);
-  font-size: 0.88em;
+  font-size: 0.85em;
+  font-style: normal;
 }
 
 .markdown-document pre {
@@ -219,7 +225,6 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-panel);
-  box-shadow: var(--shadow-sm);
   line-height: 1.6;
 }
 
@@ -227,7 +232,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  font-size: 0.86em;
+  font-size: 0.85em;
 }
 
 .markdown-document table {
@@ -239,9 +244,8 @@
   border-spacing: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
   font-family: var(--font-ui);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
 .markdown-document th,
@@ -257,32 +261,25 @@
 }
 
 .markdown-document th {
-  background: var(--surface-panel);
+  border-bottom-color: var(--border-strong);
   color: var(--text-secondary);
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   font-weight: 650;
-  letter-spacing: 0.02em;
-}
-
-.markdown-document tbody tr:nth-child(even) td {
-  background: color-mix(in srgb, var(--surface-panel) 40%, transparent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .markdown-document tbody tr:last-child td {
   border-bottom: 0;
 }
 
+/* A short centered rule reads as a section break, not a page-wide divider. */
 .markdown-document hr {
+  width: 6rem;
   height: 1px;
-  margin: 2.5rem auto;
+  margin: 3rem auto;
   border: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--border-strong) 20%,
-    var(--border-strong) 80%,
-    transparent
-  );
+  background: var(--border-strong);
 }
 
 .markdown-document input[type="checkbox"] {
