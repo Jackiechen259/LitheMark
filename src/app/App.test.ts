@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.svelte";
+import { PREFERENCE_DEFAULTS } from "../features/settings/settings-service";
 
 const service = vi.hoisted(() => ({
   selectMarkdownFiles: vi.fn(),
@@ -27,9 +28,7 @@ const service = vi.hoisted(() => ({
 }));
 const preferences = vi.hoisted(() => ({
   loadPreferences: vi.fn(),
-  saveTheme: vi.fn(),
-  saveRecentFiles: vi.fn(),
-  saveUpdateChecksEnabled: vi.fn(),
+  savePreference: vi.fn(),
 }));
 const updates = vi.hoisted(() => ({
   tauriUpdateGateway: {
@@ -39,7 +38,16 @@ const updates = vi.hoisted(() => ({
 }));
 
 vi.mock("../features/documents/document-service", () => service);
-vi.mock("../features/settings/settings-service", () => preferences);
+vi.mock("../features/settings/settings-service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../features/settings/settings-service")>();
+  // Keep the pure helpers (PREFERENCE_DEFAULTS, sanitizePreferences) real; only the
+  // store-touching functions need stubbing in the browser test host.
+  return {
+    ...actual,
+    loadPreferences: preferences.loadPreferences,
+    savePreference: preferences.savePreference,
+  };
+});
 vi.mock("../features/updates/update-service", () => updates);
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(vi.fn()),
@@ -82,13 +90,13 @@ describe("App", () => {
     Object.values(preferences).forEach((mock) => mock.mockReset());
     Object.values(updates.tauriUpdateGateway).forEach((mock) => mock.mockReset());
     preferences.loadPreferences.mockResolvedValue({
+      ...PREFERENCE_DEFAULTS,
       theme: "light",
+      locale: "system",
       recentFiles: [],
       updateChecksEnabled: true,
     });
-    preferences.saveTheme.mockResolvedValue(undefined);
-    preferences.saveRecentFiles.mockResolvedValue(undefined);
-    preferences.saveUpdateChecksEnabled.mockResolvedValue(undefined);
+    preferences.savePreference.mockResolvedValue(undefined);
     updates.tauriUpdateGateway.check.mockResolvedValue(null);
     updates.tauriUpdateGateway.relaunch.mockResolvedValue(undefined);
     service.closeDocument.mockResolvedValue(undefined);
@@ -152,7 +160,7 @@ describe("App", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Use dark theme" }));
     await waitFor(() => expect(document.documentElement).toHaveAttribute("data-theme", "dark"));
-    expect(preferences.saveTheme).toHaveBeenCalledWith("dark");
+    expect(preferences.savePreference).toHaveBeenCalledWith("theme", "dark");
 
     await fireEvent.click(screen.getByRole("button", { name: "Use light theme" }));
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
@@ -211,30 +219,34 @@ describe("App", () => {
 
   it("never contacts the network when update checks are switched off", async () => {
     preferences.loadPreferences.mockResolvedValue({
-      theme: "light",
-      recentFiles: [],
+      ...PREFERENCE_DEFAULTS,
       updateChecksEnabled: false,
     });
 
     render(App);
-    const toggle = await screen.findByRole("checkbox", { name: /Check for updates/ });
-    await waitFor(() => expect(toggle).not.toBeChecked());
-    expect(updates.tauriUpdateGateway.check).not.toHaveBeenCalled();
+    // The launch check is skipped because update checks are off.
+    await waitFor(() => expect(updates.tauriUpdateGateway.check).not.toHaveBeenCalled());
 
+    // Re-enabling it from the Updates settings persists the choice without auto-checking.
+    await fireEvent.keyDown(window, { key: ",", ctrlKey: true });
+    const toggle = await screen.findByRole("checkbox", {
+      name: /Check for updates automatically/i,
+    });
+    expect(toggle).not.toBeChecked();
     await fireEvent.click(toggle);
-    expect(preferences.saveUpdateChecksEnabled).toHaveBeenCalledWith(true);
+    expect(preferences.savePreference).toHaveBeenCalledWith("updateChecksEnabled", true);
     expect(updates.tauriUpdateGateway.check).not.toHaveBeenCalled();
   });
 
   it("checks for updates on demand", async () => {
     preferences.loadPreferences.mockResolvedValue({
-      theme: "light",
-      recentFiles: [],
+      ...PREFERENCE_DEFAULTS,
       updateChecksEnabled: false,
     });
 
     render(App);
-    await fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    await fireEvent.keyDown(window, { key: ",", ctrlKey: true });
+    await fireEvent.click(await screen.findByRole("button", { name: "Check for updates" }));
 
     expect(await screen.findByRole("button", { name: "Up to date" })).toBeVisible();
     expect(updates.tauriUpdateGateway.check).toHaveBeenCalledOnce();

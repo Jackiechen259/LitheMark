@@ -108,4 +108,14 @@ export class AppState {
   toggleSidebar() {
     this.sidebarOpen = !this.sidebarOpen;
   }
+
+  view = $state<"documents" | "settings">("documents");
+
+  openSettings() {
+    this.view = "settings";
+  }
+
+  closeSettings() {
+    this.view = "documents";
+  }
 }

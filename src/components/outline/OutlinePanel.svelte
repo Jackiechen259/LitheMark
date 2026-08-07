@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Heading } from "../../features/documents/document-types";
+  import { t } from "../../features/i18n/i18n.svelte";
   import VirtualOutline from "./VirtualOutline.svelte";
 
   let {
@@ -11,13 +12,13 @@
   } = $props();
 </script>
 
-<aside class="outline-panel" aria-label="Document outline">
-  <div class="outline-heading">Outline</div>
+<aside class="outline-panel" aria-label={t("outline.aria")}>
+  <div class="outline-heading">{t("outline.heading")}</div>
   {#if headings.length}
     {#if headings.length > 250}
       <VirtualOutline {headings} {onSelect} />
     {:else}
-      <nav aria-label="Headings">
+      <nav aria-label={t("outline.ariaHeadings")}>
         {#each headings as heading (heading.blockId)}
           <button
             type="button"
@@ -32,6 +33,6 @@
       </nav>
     {/if}
   {:else}
-    <p>No headings in this document.</p>
+    <p>{t("outline.empty")}</p>
   {/if}
 </aside>

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
 
   import type { ContextMenuEntry, ContextMenuItem } from "../../app/context-menu";
+  import { t } from "../../features/i18n/i18n.svelte";
 
   let {
     x,
@@ -114,7 +115,7 @@
   class="context-menu"
   role="menu"
   tabindex="-1"
-  aria-label="Context menu"
+  aria-label={t("context.aria")}
   style={`left: ${left}px; top: ${top}px`}
   onkeydown={handleKeydown}
 >

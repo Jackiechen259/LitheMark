@@ -7,6 +7,10 @@ import {
   type ContextMenuEntry,
 } from "./context-menu";
 
+// The real `t` is threaded through at runtime; in this unit the labels only need to be
+// identifiable, so an identity translator keeps the menu a plain value under test.
+const t = (key: string) => key;
+
 function actions(overrides: Partial<ContextMenuActions> = {}): ContextMenuActions {
   return {
     hasDocument: true,
@@ -33,6 +37,7 @@ function actions(overrides: Partial<ContextMenuActions> = {}): ContextMenuAction
     toggleEditing: vi.fn(),
     toggleOutline: vi.fn(),
     toggleTheme: vi.fn(),
+    openSettings: vi.fn(),
     ...overrides,
   };
 }
@@ -109,33 +114,38 @@ describe("buildContextMenu", () => {
   it("offers tab commands and disables closing others for a lone tab", () => {
     const target = { surface: "tab" as const, selectionText: "", documentId: "doc-1" };
 
-    const entries = buildContextMenu(target, actions({ tabCount: 1 }));
+    const entries = buildContextMenu(target, actions({ tabCount: 1 }), t);
 
     expect(labels(entries)).toEqual([
-      "Close tab",
-      "Close other tabs",
-      "Close all tabs",
-      "Copy file path",
+      "context.tab.close",
+      "context.tab.closeOthers",
+      "context.tab.closeAll",
+      "context.tab.copyPath",
     ]);
     expect(find(entries, "tab-close-others")).toMatchObject({ disabled: true });
     expect(
-      find(buildContextMenu(target, actions({ tabCount: 2 })), "tab-close-others"),
+      find(buildContextMenu(target, actions({ tabCount: 2 }), t), "tab-close-others"),
     ).toMatchObject({ disabled: false });
   });
 
   it("disables copy without a selection and offers link commands on a link", () => {
     const region = document.createElement("article");
 
-    const plain = buildContextMenu({ surface: "document", selectionText: "", region }, actions());
+    const plain = buildContextMenu(
+      { surface: "document", selectionText: "", region },
+      actions(),
+      t,
+    );
     expect(find(plain, "document-copy")).toMatchObject({ disabled: true });
     expect(find(plain, "link-open")).toBe(undefined);
 
     const onLink = buildContextMenu(
       { surface: "document", selectionText: "docs", region, linkHref: "#intro" },
       actions(),
+      t,
     );
     expect(find(onLink, "document-copy")).toMatchObject({ disabled: false });
-    expect(find(onLink, "link-open")).toMatchObject({ label: "Go to section" });
+    expect(find(onLink, "link-open")).toMatchObject({ label: "context.goToSection" });
   });
 
   it("routes the document commands to their actions", () => {
@@ -145,6 +155,7 @@ describe("buildContextMenu", () => {
     const entries = buildContextMenu(
       { surface: "document", selectionText: "copied", region, linkHref: "https://example.com" },
       handlers,
+      t,
     );
     for (const entry of entries) {
       if (entry.kind === "item" && !entry.disabled) entry.run();
@@ -176,6 +187,7 @@ describe("buildContextMenu", () => {
     const clean = buildContextMenu(
       { surface: "editor", selectionText: "" },
       actions({ editor, editing: true, dirty: false }),
+      t,
     );
     expect(find(clean, "editor-cut")).toMatchObject({ disabled: true });
     expect(find(clean, "editor-paste")).toMatchObject({ disabled: false });
@@ -185,6 +197,7 @@ describe("buildContextMenu", () => {
     const dirty = buildContextMenu(
       { surface: "editor", selectionText: "" },
       actions({ editor, editing: true, dirty: true }),
+      t,
     );
     expect(find(dirty, "editor-cut")).toMatchObject({ disabled: false });
     expect(find(dirty, "editor-save")).toMatchObject({ disabled: false });
@@ -195,20 +208,23 @@ describe("buildContextMenu", () => {
     const open = buildContextMenu(
       { surface: "document", selectionText: "", region },
       actions({ outlineOpen: true }),
+      t,
     );
     const closed = buildContextMenu(
       { surface: "document", selectionText: "", region },
       actions({ outlineOpen: false }),
+      t,
     );
 
-    expect(find(open, "document-outline")).toMatchObject({ label: "Hide outline" });
-    expect(find(closed, "document-outline")).toMatchObject({ label: "Show outline" });
+    expect(find(open, "document-outline")).toMatchObject({ label: "context.hideOutline" });
+    expect(find(closed, "document-outline")).toMatchObject({ label: "context.showOutline" });
   });
 
   it("dims document commands when nothing is open", () => {
     const entries = buildContextMenu(
       { surface: "app", selectionText: "" },
       actions({ hasDocument: false }),
+      t,
     );
 
     expect(find(entries, "app-open")).toMatchObject({ disabled: undefined });
@@ -218,13 +234,14 @@ describe("buildContextMenu", () => {
 
   it("never emits a leading, trailing or repeated separator", () => {
     const surfaces: ContextMenuEntry[][] = [
-      buildContextMenu({ surface: "tab", selectionText: "", documentId: "doc-1" }, actions()),
-      buildContextMenu({ surface: "editor", selectionText: "" }, actions()),
-      buildContextMenu({ surface: "outline", selectionText: "" }, actions()),
-      buildContextMenu({ surface: "app", selectionText: "" }, actions()),
+      buildContextMenu({ surface: "tab", selectionText: "", documentId: "doc-1" }, actions(), t),
+      buildContextMenu({ surface: "editor", selectionText: "" }, actions(), t),
+      buildContextMenu({ surface: "outline", selectionText: "" }, actions(), t),
+      buildContextMenu({ surface: "app", selectionText: "" }, actions(), t),
       buildContextMenu(
         { surface: "document", selectionText: "", region: document.createElement("article") },
         actions(),
+        t,
       ),
     ];
 

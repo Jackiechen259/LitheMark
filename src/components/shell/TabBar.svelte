@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DocumentTab } from "../../features/documents/document-types";
+  import { t } from "../../features/i18n/i18n.svelte";
 
   let {
     tabs,
@@ -40,7 +41,7 @@
   }
 </script>
 
-<div class="tab-bar" role="tablist" aria-label="Open documents">
+<div class="tab-bar" role="tablist" aria-label={t("tabs.aria")}>
   {#each tabs as tab (tab.documentId)}
     <div
       class:active={tab.documentId === activeDocumentId}
@@ -67,7 +68,7 @@
       <button
         type="button"
         class="tab-close"
-        aria-label={`Close ${tab.metadata.name}`}
+        aria-label={t("tabs.close", { name: tab.metadata.name })}
         onclick={() => onClose(tab.documentId)}
       >
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">

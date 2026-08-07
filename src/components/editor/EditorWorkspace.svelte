@@ -8,22 +8,26 @@
     EditState,
     TextEdit,
   } from "../../features/documents/document-types";
+  import { t } from "../../features/i18n/i18n.svelte";
   import { normalizeAppError } from "../../lib/errors";
 
   let {
     tab,
     source,
     draftRevision,
+    initialPercent = 50,
     onApplyEdits,
     onDirty,
     onPreview,
     onSave,
     onError,
     onSnapshot,
+    onSplitEnd,
   }: {
     tab: DocumentTab;
     source: string;
     draftRevision: number;
+    initialPercent?: number;
     onApplyEdits: (baseRevision: number, edits: TextEdit[]) => Promise<EditState>;
     onDirty: () => void;
     onPreview: (
@@ -34,6 +38,7 @@
     onSave: () => void | Promise<void>;
     onError: (error: unknown) => void;
     onSnapshot: (source: string, draftRevision: number) => void;
+    onSplitEnd?: (percent: number) => void;
   } = $props();
 
   let editor: MarkdownEditor;
@@ -41,7 +46,9 @@
   let previewBusy = $state(false);
   let previewTimer: number | undefined;
   let requestNonce = 0;
-  let editorPercent = $state(50);
+  // Seed the split from the persisted preference once; later drags own the value.
+  // svelte-ignore state_referenced_locally
+  let editorPercent = $state(initialPercent);
 
   function schedulePreview(state: EditState, visibleStart: number, visibleEnd: number) {
     window.clearTimeout(previewTimer);
@@ -85,6 +92,8 @@
     const end = () => {
       handle.removeEventListener("pointermove", move);
       handle.removeEventListener("pointerup", end);
+      // Persist only when the drag finishes, not on every pointer move.
+      onSplitEnd?.(editorPercent);
     };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", end);
@@ -169,7 +178,7 @@
 </script>
 
 <div class="editor-workspace" style={`--editor-percent: ${editorPercent}%`}>
-  <section class="source-pane" aria-label="Markdown editor">
+  <section class="source-pane" aria-label={t("editor.aria.editor")}>
     <MarkdownEditor
       bind:this={editor}
       {source}
@@ -187,22 +196,24 @@
     type="button"
     class="splitter"
     role="separator"
-    aria-label="Resize editor and preview"
+    aria-label={t("editor.aria.resize")}
     aria-orientation="vertical"
     aria-valuenow={Math.round(editorPercent)}
     tabindex="0"
     onpointerdown={beginResize}
     onkeydown={(event) => {
       if (event.key === "ArrowLeft") editorPercent = Math.max(25, editorPercent - 5);
-      if (event.key === "ArrowRight") editorPercent = Math.min(75, editorPercent + 5);
+      else if (event.key === "ArrowRight") editorPercent = Math.min(75, editorPercent + 5);
+      else return;
+      onSplitEnd?.(editorPercent);
     }}
   ></button>
-  <section class="preview-pane" aria-label="Markdown preview">
+  <section class="preview-pane" aria-label={t("editor.aria.preview")}>
     <div class="preview-heading">
-      <strong>Preview</strong>
-      {#if previewBusy}<span>Updating…</span>{/if}
+      <strong>{t("editor.preview")}</strong>
+      {#if previewBusy}<span>{t("editor.updating")}</span>{/if}
       {#if preview && tab.metadata.mode !== "full"}
-        <span>Lines {preview.startLine + 1}–{preview.endLine}</span>
+        <span>{t("editor.lines", { start: preview.startLine + 1, end: preview.endLine })}</span>
       {/if}
     </div>
     <div class="draft-preview-scroll">

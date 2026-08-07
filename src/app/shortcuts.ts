@@ -5,6 +5,7 @@ export interface ShortcutActions {
   previousTab: () => void;
   find: () => void;
   save: () => void;
+  openSettings: () => void;
 }
 
 export function handleShortcut(event: KeyboardEvent, actions: ShortcutActions) {
@@ -25,6 +26,9 @@ export function handleShortcut(event: KeyboardEvent, actions: ShortcutActions) {
   } else if (key === "s") {
     event.preventDefault();
     actions.save();
+  } else if (key === ",") {
+    event.preventDefault();
+    actions.openSettings();
   } else if (event.key === "Tab") {
     event.preventDefault();
     if (event.shiftKey) actions.previousTab();

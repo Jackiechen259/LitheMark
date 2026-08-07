@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import { t } from "../../features/i18n/i18n.svelte";
 
   let {
     header,
@@ -15,7 +16,7 @@
 </script>
 
 <div class="app-shell">
-  <a class="skip-link" href="#app-main">Skip to document</a>
+  <a class="skip-link" href="#app-main">{t("shell.skipToDocument")}</a>
   <header class="app-header">
     {@render header()}
   </header>

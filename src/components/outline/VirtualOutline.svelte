@@ -2,6 +2,7 @@
   import { createVirtualizer } from "@tanstack/svelte-virtual";
 
   import type { Heading } from "../../features/documents/document-types";
+  import { t } from "../../features/i18n/i18n.svelte";
 
   let {
     headings,
@@ -33,7 +34,7 @@
 
 <div class="virtual-outline" bind:this={scrollElement}>
   <nav
-    aria-label="Headings"
+    aria-label={t("outline.ariaHeadings")}
     class="virtual-outline-list"
     style={`--outline-total-height: ${$virtualizer.getTotalSize()}px`}
   >

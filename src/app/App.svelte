@@ -1,20 +1,22 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { SvelteMap } from "svelte/reactivity";
+  import { getVersion } from "@tauri-apps/api/app";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
 
   import ContextMenu from "../components/common/ContextMenu.svelte";
-  import EmptyState from "../components/common/EmptyState.svelte";
   import ErrorNotice from "../components/common/ErrorNotice.svelte";
   import UpdateNotice from "../components/common/UpdateNotice.svelte";
   import DocumentChangedNotice from "../components/document/DocumentChangedNotice.svelte";
   import DocumentLoading from "../components/document/DocumentLoading.svelte";
   import DocumentView from "../components/document/DocumentView.svelte";
   import EditorWorkspace from "../components/editor/EditorWorkspace.svelte";
+  import HomeView from "../components/home/HomeView.svelte";
   import OutlinePanel from "../components/outline/OutlinePanel.svelte";
   import SearchPanel from "../components/search/SearchPanel.svelte";
   import AppShell from "../components/shell/AppShell.svelte";
+  import SettingsView from "../components/settings/SettingsView.svelte";
   import TabBar from "../components/shell/TabBar.svelte";
   import Toolbar from "../components/shell/Toolbar.svelte";
   import { AppState } from "../features/documents/document-state.svelte";
@@ -38,11 +40,13 @@
     selectMarkdownFiles,
   } from "../features/documents/document-service";
   import type {
+    AppPreferences,
     DocumentIndexReady,
     Heading,
     HeadingJump,
     RecentFile,
     Theme,
+    ThemePreference,
     SearchResult,
     TextEdit,
     DraftPreview,
@@ -50,14 +54,15 @@
   } from "../features/documents/document-types";
   import {
     loadPreferences,
-    saveRecentFiles,
-    saveTheme,
-    saveUpdateChecksEnabled,
+    savePreference,
+    PREFERENCE_DEFAULTS,
   } from "../features/settings/settings-service";
+  import { activeLocale, setLocale, t } from "../features/i18n/i18n.svelte";
   import { tauriUpdateGateway } from "../features/updates/update-service";
   import { UpdateController } from "../features/updates/update-state.svelte";
   import { readClipboardText, writeClipboardText } from "../lib/clipboard";
-  import { normalizeAppError } from "../lib/errors";
+  import { localizeAppError, normalizeAppError } from "../lib/errors";
+  import { formatBytes } from "../lib/format";
   import {
     buildContextMenu,
     classifyContextTarget,
@@ -69,12 +74,12 @@
 
   const appState = new AppState();
   const updates = new UpdateController(tauriUpdateGateway);
-  let updateChecksEnabled = $state(true);
+  let preferences = $state<AppPreferences>({ ...PREFERENCE_DEFAULTS });
   let openingCount = $state(0);
   let errorMessage = $state("");
   let attemptedPath = $state<string | null>(null);
-  let recentFiles = $state<RecentFile[]>([]);
   let theme = $state<Theme>("light");
+  let themePreference = $state<ThemePreference>("system");
   let jump = $state<HeadingJump | null>(null);
   let jumpNonce = 0;
   let searchOpen = $state(false);
@@ -87,6 +92,9 @@
   let searchRequest = 0;
   let changePollRunning = false;
   let themeTouched = false;
+  let sidebarTouched = false;
+  let appVersion = $state("-");
+  let settingsFocus = $state<string | undefined>(undefined);
   const editorSources = new SvelteMap<string, string>();
   let editorWorkspace = $state<EditorWorkspace | null>(null);
   let allowWindowClose = false;
@@ -95,10 +103,10 @@
   const activeTab = $derived(appState.activeTab);
   const statusText = $derived(
     activeTab
-      ? `${activeTab.dirty ? "Unsaved · " : ""}${activeTab.editing ? "Editing · " : ""}${activeTab.metadata.encoding} · ${formatBytes(activeTab.metadata.byteSize)} · ${activeTab.metadata.lineCount.toLocaleString()} lines · revision ${activeTab.metadata.revision}`
+      ? `${activeTab.dirty ? `${t("status.unsaved")} · ` : ""}${activeTab.editing ? `${t("status.editing")} · ` : ""}${activeTab.metadata.encoding} · ${formatBytes(activeTab.metadata.byteSize)} · ${activeTab.metadata.lineCount.toLocaleString(activeLocale())} ${t("status.lines")} · ${t("status.revision")} ${activeTab.metadata.revision}`
       : openingCount > 0
-        ? "Opening document…"
-        : "Ready",
+        ? t("app.openingDocument")
+        : t("app.ready"),
   );
 
   const updateNoticeVisible = $derived(
@@ -107,28 +115,38 @@
       updates.status === "installing" ||
       updates.status === "error",
   );
-  const updateBusy = $derived(
-    updates.status === "checking" ||
-      updates.status === "downloading" ||
-      updates.status === "installing",
-  );
-  const updateActionLabel = $derived(
-    updates.status === "checking"
-      ? "Checking…"
-      : updates.status === "upToDate"
-        ? "Up to date"
-        : "Check for updates",
-  );
 
   $effect(() => {
-    document.documentElement.dataset.theme = theme;
+    const root = document.documentElement;
+    root.dataset.theme = theme;
+    root.lang = activeLocale();
+    root.style.setProperty("--content-font-size", `${preferences.contentFontSize}rem`);
+    root.style.setProperty("--content-width", `${preferences.contentWidth}rem`);
+    root.style.setProperty(
+      "--content-font",
+      preferences.contentFont === "sans" ? "var(--font-ui)" : "var(--font-content)",
+    );
+    // The indexing pill is a CSS ::after, so its label rides in as a quoted string variable.
+    root.style.setProperty("--indexing-label", `"${t("document.indexing")}"`);
     document.title = activeTab
-      ? `${activeTab.dirty ? "* " : ""}${activeTab.metadata.name} — LitheMark`
-      : "LitheMark";
+      ? `${activeTab.dirty ? "* " : ""}${activeTab.metadata.name} — ${t("app.name")}`
+      : t("app.name");
+  });
+
+  // Keep the open tab paths persisted so a relaunch can restore them when enabled.
+  $effect(() => {
+    const paths = appState.tabs.map((tab) => tab.metadata.displayPath);
+    void savePreference("lastOpenPaths", paths).catch(() => {
+      // A failed write does not disrupt the session.
+    });
   });
 
   onMount(() => {
-    const listener = (event: KeyboardEvent) =>
+    const listener = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && appState.view === "settings") {
+        appState.closeSettings();
+        return;
+      }
       handleShortcut(event, {
         open: () => void chooseDocuments(),
         closeActive: () => {
@@ -142,7 +160,12 @@
         save: () => {
           if (appState.activeTab?.editing) void saveActiveEdit();
         },
+        openSettings: () => {
+          settingsFocus = undefined;
+          appState.openSettings();
+        },
       });
+    };
     window.addEventListener("keydown", listener);
     // LitheMark always draws its own menu, so the webview's never gets to appear.
     const contextMenuListener = (event: MouseEvent) => {
@@ -167,7 +190,7 @@
           if (allowWindowClose) return;
           event.preventDefault();
           for (const tab of [...appState.tabs]) {
-            if (tab.dirty && !(await confirmDirtyTab(tab, "closing LitheMark"))) return;
+            if (tab.dirty && !(await confirmDirtyTab(tab, t("confirm.action.closingApp")))) return;
           }
           allowWindowClose = true;
           try {
@@ -188,13 +211,25 @@
     } catch {
       // The browser-only test environment has no native window metadata.
     }
+    void getVersion()
+      .then((value) => (appVersion = value))
+      .catch(() => {
+        // The browser test host has no Tauri app metadata.
+      });
     void loadPreferences()
-      .then((preferences) => {
-        if (!themeTouched) theme = preferences.theme;
-        recentFiles = preferences.recentFiles;
-        updateChecksEnabled = preferences.updateChecksEnabled;
+      .then((loaded) => {
+        preferences = loaded;
+        if (!themeTouched) {
+          themePreference = loaded.theme;
+          theme = resolveTheme(loaded.theme);
+        }
+        if (!sidebarTouched) {
+          appState.sidebarOpen = loaded.outlineOpenByDefault;
+        }
+        setLocale(loaded.locale);
         // The only network request LitheMark makes, and only with consent.
-        if (updateChecksEnabled) void updates.check({ silent: true });
+        if (loaded.updateChecksEnabled) void updates.check({ silent: true });
+        if (loaded.restoreTabsOnLaunch) void restoreTabs(loaded.lastOpenPaths);
       })
       .catch(() => {
         // The reader remains fully usable when preferences are unavailable.
@@ -254,9 +289,21 @@
     }
   }
 
+  /** Reopen the tabs that were present when LitheMark last closed, skipping any that vanished. */
+  async function restoreTabs(paths: string[]) {
+    for (const path of paths) {
+      try {
+        const result = await openDocument(path);
+        appState.open(result);
+      } catch {
+        // The file may have been deleted or moved; restore carries on silently.
+      }
+    }
+  }
+
   async function closeTab(documentId: string) {
     const tab = appState.tabs.find((candidate) => candidate.documentId === documentId);
-    if (tab?.dirty && !(await confirmDirtyTab(tab, "closing this tab"))) return;
+    if (tab?.dirty && !(await confirmDirtyTab(tab, t("confirm.action.closingTab")))) return;
     try {
       if (tab?.editing) await discardEdit(documentId);
       await closeDocument(documentId);
@@ -273,9 +320,11 @@
     tab: (typeof appState.tabs)[number],
     action: string,
   ): Promise<boolean> {
-    const saveFirst = window.confirm(`Save changes to ${tab.metadata.name} before ${action}?`);
+    const saveFirst = window.confirm(
+      t("confirm.saveBeforeAction", { name: tab.metadata.name, action }),
+    );
     if (saveFirst) return saveTab(tab);
-    return window.confirm(`Discard unsaved changes to ${tab.metadata.name}?`);
+    return window.confirm(t("confirm.discardBeforeAction", { name: tab.metadata.name }));
   }
 
   async function toggleEditing() {
@@ -283,10 +332,10 @@
     if (!tab) return;
     if (tab.editing) {
       if (tab.dirty) {
-        const saveFirst = window.confirm(`Save changes to ${tab.metadata.name}?`);
+        const saveFirst = window.confirm(t("confirm.saveChanges", { name: tab.metadata.name }));
         if (saveFirst) {
           if (!(await saveTab(tab))) return;
-        } else if (!window.confirm("Discard the unsaved draft?")) {
+        } else if (!window.confirm(t("confirm.discardDraft"))) {
           return;
         }
       }
@@ -332,7 +381,7 @@
     edits: TextEdit[],
   ): Promise<EditState> {
     const tab = appState.tabs.find((candidate) => candidate.documentId === documentId);
-    if (!tab) throw new Error("The edited document is no longer open");
+    if (!tab) throw new Error(t("editor.noLongerOpen"));
     const state = await applyEditBatch(documentId, baseDraftRevision, edits);
     tab.draftRevision = state.draftRevision;
     tab.dirty = true;
@@ -347,7 +396,7 @@
     endLine?: number,
   ): Promise<DraftPreview> {
     if (!appState.tabs.some((candidate) => candidate.documentId === documentId)) {
-      throw new Error("The edited document is no longer open");
+      throw new Error(t("editor.noLongerOpen"));
     }
     return previewEdit(documentId, draftRevision, startLine, endLine);
   }
@@ -365,7 +414,7 @@
         ? editorWorkspace?.hasConflictMarkers()
         : /^<<<<<<< |^\|\|\|\|\|\|\| |^=======\s*$|^>>>>>>> /m.test(storedSource)
     ) {
-      errorMessage = "Resolve every Draft / Base / Disk conflict marker before saving.";
+      errorMessage = t("editor.conflictMarkers");
       return false;
     }
     tab.editStatus = "saving";
@@ -409,9 +458,7 @@
         editorWorkspace?.replaceDocument(merge.content, state.draftRevision);
       }
       tab.editStatus = merge.hasConflicts ? "conflict" : "ready";
-      errorMessage = merge.hasConflicts
-        ? "The file changed on disk. Resolve the Draft / Base / Disk markers, then save again."
-        : "External changes were merged. Review the result, then save again.";
+      errorMessage = merge.hasConflicts ? t("editor.fileChangedMerge") : t("editor.externalMerged");
       return false;
     } catch (error) {
       showError(error);
@@ -506,33 +553,64 @@
   }
 
   function updateRecentFile(path: string, name: string) {
-    recentFiles = [
+    preferences.recentFiles = [
       { path, name, lastOpenedMs: Date.now() },
-      ...recentFiles.filter((item) => item.path.toLocaleLowerCase() !== path.toLocaleLowerCase()),
+      ...preferences.recentFiles.filter(
+        (item) => item.path.toLocaleLowerCase() !== path.toLocaleLowerCase(),
+      ),
     ].slice(0, 10);
-    void saveRecentFiles(recentFiles).catch(() => {
+    void savePreference("recentFiles", preferences.recentFiles).catch(() => {
       // A failed recent-file write must not disrupt document reading.
     });
   }
 
   function showError(error: unknown) {
-    errorMessage = normalizeAppError(error).message;
-  }
-
-  function setUpdateChecks(enabled: boolean) {
-    updateChecksEnabled = enabled;
-    if (!enabled) updates.dismiss();
-    void saveUpdateChecksEnabled(enabled).catch(() => {
-      // The choice still applies to the current session.
-    });
+    errorMessage = localizeAppError(normalizeAppError(error));
   }
 
   function toggleTheme() {
     themeTouched = true;
-    theme = theme === "light" ? "dark" : "light";
-    void saveTheme(theme).catch(() => {
-      // Theme selection still applies to the current session.
+    const next: Theme = theme === "light" ? "dark" : "light";
+    handlePreferenceChange("theme", next);
+  }
+
+  /**
+   * Apply a preference from the settings view or an in-shell control: update the reactive
+   * preference object, run any side effect the change implies, and persist it. Side effects
+   * live in `applyPreferenceSideEffect` so this stays a single write path.
+   */
+  function handlePreferenceChange<K extends keyof AppPreferences>(
+    key: K,
+    value: AppPreferences[K],
+  ) {
+    preferences[key] = value;
+    applyPreferenceSideEffect(key);
+    void savePreference(key, value).catch(() => {
+      // The change still applies to the current session.
     });
+  }
+
+  function applyPreferenceSideEffect(key: keyof AppPreferences) {
+    switch (key) {
+      case "theme":
+        themeTouched = true;
+        themePreference = preferences.theme;
+        theme = resolveTheme(preferences.theme);
+        break;
+      case "locale":
+        setLocale(preferences.locale);
+        break;
+      case "updateChecksEnabled":
+        if (!preferences.updateChecksEnabled) updates.dismiss();
+        break;
+      // contentFontSize, contentWidth and contentFont are applied by the root $effect that
+      // reads `preferences`, so no imperative side effect is needed here.
+    }
+  }
+
+  function resolveTheme(preference: ThemePreference): Theme {
+    if (preference !== "system") return preference;
+    return globalThis.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
   }
 
   function jumpToHeading(heading: Heading) {
@@ -551,7 +629,7 @@
 
     const selectionText = globalThis.getSelection?.()?.toString() ?? "";
     const target = classifyContextTarget(event.target, selectionText);
-    const entries = buildContextMenu(target, contextMenuActions());
+    const entries = buildContextMenu(target, contextMenuActions(), t);
     if (!entries.length) return;
     contextMenu = { ...contextMenuAnchor(event), entries };
   }
@@ -598,6 +676,7 @@
       toggleEditing: () => void toggleEditing(),
       toggleOutline: () => appState.toggleSidebar(),
       toggleTheme,
+      openSettings: () => appState.openSettings(),
     };
   }
 
@@ -665,12 +744,6 @@
     // Svelte bindings and the search panel both listen for input, not value writes.
     field.dispatchEvent(new Event("input", { bubbles: true }));
   }
-
-  function formatBytes(bytes: number) {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
 </script>
 
 <AppShell status={statusText}>
@@ -682,7 +755,13 @@
         {theme}
         canShowOutline={Boolean(activeTab)}
         outlineOpen={appState.sidebarOpen}
+        inSettings={appState.view === "settings"}
         onOpen={chooseDocuments}
+        onOpenSettings={() => {
+          settingsFocus = undefined;
+          appState.openSettings();
+        }}
+        onCloseSettings={() => appState.closeSettings()}
         onToggleOutline={() => appState.toggleSidebar()}
         onToggleTheme={toggleTheme}
         editing={Boolean(activeTab?.editing)}
@@ -691,7 +770,7 @@
         onEdit={toggleEditing}
         onSave={saveActiveEdit}
       />
-      {#if appState.tabs.length}
+      {#if appState.tabs.length && appState.view !== "settings"}
         <TabBar
           tabs={appState.tabs}
           activeDocumentId={appState.activeDocumentId}
@@ -713,25 +792,27 @@
   {/snippet}
 
   {#snippet statusActions()}
-    <label class="update-toggle">
-      <input
-        type="checkbox"
-        checked={updateChecksEnabled}
-        onchange={(event) => setUpdateChecks(event.currentTarget.checked)}
-      />
-      Check for updates automatically
-    </label>
     <button
       type="button"
       class="status-button"
-      disabled={updateBusy}
-      onclick={() => void updates.check()}
+      title={t("settings.about.title")}
+      onclick={() => {
+        settingsFocus = "about";
+        appState.openSettings();
+      }}
     >
-      {updateActionLabel}
+      {t("status.version", { version: appVersion })}
     </button>
   {/snippet}
 
-  {#if openingCount > 0 && !activeTab}
+  {#if appState.view === "settings"}
+    <SettingsView
+      {preferences}
+      onChange={handlePreferenceChange}
+      {updates}
+      focusSection={settingsFocus}
+    />
+  {:else if openingCount > 0 && !activeTab}
     <DocumentLoading />
   {:else if activeTab}
     <div class:with-outline={appState.sidebarOpen} class="document-workspace">
@@ -743,7 +824,7 @@
           <DocumentChangedNotice
             kind={activeTab.externalChange.kind}
             reloading={activeTab.status === "reloading"}
-            actionLabel={activeTab.dirty ? "Merge changes" : "Reload"}
+            actionLabel={activeTab.dirty ? t("change.merge") : t("change.reload")}
             onReload={() =>
               void (activeTab.dirty
                 ? resolveSaveConflict(activeTab)
@@ -780,6 +861,7 @@
             tab={editingTab}
             source={editorSources.get(editingTab.documentId)!}
             draftRevision={editingTab.draftRevision!}
+            initialPercent={preferences.editorSplitPercent}
             onApplyEdits={(revision, edits) =>
               applyDocumentEdits(editingTab.documentId, revision, edits)}
             onDirty={() => {
@@ -800,6 +882,7 @@
                 editingTab.draftRevision = revision;
               }
             }}
+            onSplitEnd={(percent) => handlePreferenceChange("editorSplitPercent", percent)}
           />
         {:else}
           <DocumentView
@@ -826,10 +909,17 @@
       onChoose={chooseDocuments}
     />
   {:else}
-    <EmptyState
-      {recentFiles}
+    <HomeView
+      recentFiles={preferences.recentFiles}
       onOpen={chooseDocuments}
       onOpenRecent={(path) => loadDocument(path)}
+      onRemoveRecent={(path) =>
+        handlePreferenceChange(
+          "recentFiles",
+          preferences.recentFiles.filter((file) => file.path !== path),
+        )}
+      onClearRecent={() => handlePreferenceChange("recentFiles", [])}
+      onOpenSettings={() => appState.openSettings()}
     />
   {/if}
 </AppShell>

@@ -1,4 +1,8 @@
+import type { LocalePreference } from "../i18n/i18n.svelte";
+
 export type Theme = "light" | "dark";
+export type ThemePreference = "system" | Theme;
+export type ContentFont = "serif" | "sans";
 export type TabStatus = "opening" | "ready" | "reloading" | "error";
 
 export interface DocumentMetadata {
@@ -130,9 +134,17 @@ export interface RecentFile {
 }
 
 export interface AppPreferences {
-  theme: Theme;
+  theme: ThemePreference;
+  locale: LocalePreference;
   recentFiles: RecentFile[];
   updateChecksEnabled: boolean;
+  contentFontSize: number;
+  contentWidth: number;
+  contentFont: ContentFont;
+  outlineOpenByDefault: boolean;
+  editorSplitPercent: number;
+  restoreTabsOnLaunch: boolean;
+  lastOpenPaths: string[];
 }
 
 export interface AppErrorDto {

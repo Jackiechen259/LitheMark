@@ -48,6 +48,7 @@
   } from "@codemirror/view";
 
   import type { EditState, TextEdit } from "../../features/documents/document-types";
+  import { t } from "../../features/i18n/i18n.svelte";
   import { readClipboardText, writeClipboardText } from "../../lib/clipboard";
 
   let {
@@ -82,19 +83,25 @@
   type CommandItem = { label: string; run: () => void };
   const commands = $derived(
     [
-      { label: "Save document", run: () => void flushAndSave() },
-      { label: "Find or replace", run: () => view && openSearchPanel(view) },
-      { label: "Go to line", run: () => view && gotoLine(view) },
-      { label: "Undo", run: () => view && undo(view) },
-      { label: "Redo", run: () => view && redo(view) },
-      { label: "Fold all", run: () => view && foldAll(view) },
-      { label: "Unfold all", run: () => view && unfoldAll(view) },
-      { label: "Insert link", run: () => insertSnippet("[text](https://example.com)") },
-      { label: "Insert image", run: () => insertSnippet("![alt](images/file.png)") },
-      { label: "Insert task", run: () => insertSnippet("- [ ] task") },
-      { label: "Insert code fence", run: () => insertSnippet("```text\n\n```") },
+      { label: t("editor.palette.save"), run: () => void flushAndSave() },
+      { label: t("editor.palette.findReplace"), run: () => view && openSearchPanel(view) },
+      { label: t("editor.palette.gotoLine"), run: () => view && gotoLine(view) },
+      { label: t("editor.palette.undo"), run: () => view && undo(view) },
+      { label: t("editor.palette.redo"), run: () => view && redo(view) },
+      { label: t("editor.palette.foldAll"), run: () => view && foldAll(view) },
+      { label: t("editor.palette.unfoldAll"), run: () => view && unfoldAll(view) },
       {
-        label: "Insert table",
+        label: t("editor.palette.insertLink"),
+        run: () => insertSnippet("[text](https://example.com)"),
+      },
+      {
+        label: t("editor.palette.insertImage"),
+        run: () => insertSnippet("![alt](images/file.png)"),
+      },
+      { label: t("editor.palette.insertTask"), run: () => insertSnippet("- [ ] task") },
+      { label: t("editor.palette.insertCodeFence"), run: () => insertSnippet("```text\n\n```") },
+      {
+        label: t("editor.palette.insertTable"),
         run: () => insertSnippet("| Column | Column |\n| --- | --- |\n| Value | Value |"),
       },
     ].filter((command) => command.label.toLowerCase().includes(paletteQuery.trim().toLowerCase())),
@@ -330,7 +337,7 @@
   }
 </script>
 
-<div class="editor-host" bind:this={host} aria-label="Markdown source editor"></div>
+<div class="editor-host" bind:this={host} aria-label={t("editor.aria.source")}></div>
 
 {#if paletteOpen}
   <div class="command-backdrop" role="presentation" onclick={() => (paletteOpen = false)}>
@@ -339,13 +346,13 @@
       class="command-palette"
       role="dialog"
       aria-modal="true"
-      aria-label="Command palette"
+      aria-label={t("editor.palette.title")}
       tabindex="-1"
       onclick={(event) => event.stopPropagation()}
     >
       <input
-        aria-label="Search commands"
-        placeholder="Type a command…"
+        aria-label={t("editor.palette.search")}
+        placeholder={t("editor.palette.placeholder")}
         bind:value={paletteQuery}
         onkeydown={(event) => {
           if (event.key === "Escape") {
@@ -356,7 +363,7 @@
           }
         }}
       />
-      <div role="listbox" aria-label="Commands">
+      <div role="listbox" aria-label={t("editor.palette.commands")}>
         {#each commands as command}
           <button
             type="button"

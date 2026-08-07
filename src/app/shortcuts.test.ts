@@ -10,6 +10,7 @@ function actions(): ShortcutActions {
     previousTab: vi.fn(),
     find: vi.fn(),
     save: vi.fn(),
+    openSettings: vi.fn(),
   };
 }
 
@@ -35,6 +36,13 @@ describe("handleShortcut", () => {
     handleShortcut(new KeyboardEvent("keydown", { key: "s", ctrlKey: true }), handlers);
 
     expect(handlers.save).toHaveBeenCalledOnce();
+  });
+
+  it("opens the settings view", () => {
+    const handlers = actions();
+    handleShortcut(new KeyboardEvent("keydown", { key: ",", ctrlKey: true }), handlers);
+
+    expect(handlers.openSettings).toHaveBeenCalledOnce();
   });
 
   it("cycles tabs in both directions", () => {

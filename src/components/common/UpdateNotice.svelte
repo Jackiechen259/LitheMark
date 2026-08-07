@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../../features/i18n/i18n.svelte";
   import type { UpdateStatus } from "../../features/updates/update-state.svelte";
 
   let {
@@ -22,26 +23,26 @@
     status === "error"
       ? errorMessage
       : status === "installing"
-        ? "Installing the update. LitheMark will restart."
+        ? t("updates.installing")
         : status === "downloading"
           ? percent === null
-            ? "Downloading the update…"
-            : `Downloading the update… ${Math.round(percent * 100)}%`
-          : `LitheMark ${version} is available.`,
+            ? t("updates.downloading")
+            : t("updates.downloadingPercent", { percent: Math.round(percent * 100) })
+          : t("updates.available", { version: version ?? "" }),
   );
 </script>
 
 <div class="update-notice" class:failed={status === "error"} role="status">
   <span>{message}</span>
   {#if status === "downloading" && percent !== null}
-    <progress max="1" value={percent ?? 0} aria-label="Update download progress"></progress>
+    <progress max="1" value={percent ?? 0} aria-label={t("updates.downloadProgress")}></progress>
   {/if}
   <div>
     {#if status === "available"}
-      <button type="button" onclick={onInstall}>Install and restart</button>
+      <button type="button" onclick={onInstall}>{t("updates.install")}</button>
     {/if}
     <button type="button" disabled={busy} onclick={onDismiss}>
-      {status === "error" ? "Dismiss" : "Later"}
+      {status === "error" ? t("updates.dismiss") : t("updates.later")}
     </button>
   </div>
 </div>

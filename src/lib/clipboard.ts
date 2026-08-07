@@ -4,6 +4,7 @@
  * The app ships no clipboard plugin, so these helpers use the webview clipboard
  * and fall back to the legacy `execCommand` path when the async API is missing.
  */
+import { t } from "../features/i18n/i18n.svelte";
 
 export async function writeClipboardText(text: string): Promise<void> {
   if (!text) return;
@@ -16,7 +17,7 @@ export async function writeClipboardText(text: string): Promise<void> {
   }
 
   if (!copyThroughSelection(text)) {
-    throw new Error("LitheMark could not write to the clipboard.");
+    throw new Error(t("clipboard.writeFailed"));
   }
 }
 
@@ -28,7 +29,7 @@ export async function readClipboardText(): Promise<string> {
     // Reads are the permission-gated half of the clipboard; guide the user instead.
   }
 
-  throw new Error("LitheMark could not read the clipboard. Press Ctrl+V to paste instead.");
+  throw new Error(t("clipboard.readFailed"));
 }
 
 function copyThroughSelection(text: string): boolean {

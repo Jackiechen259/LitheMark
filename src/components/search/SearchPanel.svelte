@@ -2,6 +2,7 @@
   import { tick } from "svelte";
 
   import type { SearchMatch } from "../../features/documents/document-types";
+  import { t } from "../../features/i18n/i18n.svelte";
 
   let {
     query,
@@ -58,13 +59,13 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<section class="search-panel" aria-label="Find in document">
+<section class="search-panel" aria-label={t("search.aria")}>
   <div class="search-controls">
     <input
       use:focusSearch
       type="search"
-      aria-label="Search document"
-      placeholder={indexing ? "Indexing document…" : "Find in document"}
+      aria-label={t("search.inputAria")}
+      placeholder={indexing ? t("search.indexingPlaceholder") : t("search.placeholder")}
       value={query}
       disabled={indexing}
       oninput={(event) => onQuery(event.currentTarget.value)}
@@ -72,31 +73,31 @@
     <button
       type="button"
       class:active={caseSensitive}
-      aria-label="Match case"
+      aria-label={t("search.matchCase")}
       aria-pressed={caseSensitive}
-      title="Match case"
+      title={t("search.matchCase")}
       onclick={onToggleCase}>Aa</button
     >
     <button
       type="button"
       class:active={wholeWord}
-      aria-label="Match whole word"
+      aria-label={t("search.wholeWord")}
       aria-pressed={wholeWord}
-      title="Match whole word"
+      title={t("search.wholeWord")}
       onclick={onToggleWholeWord}>W</button
     >
     <span class="search-count" aria-live="polite">
       {#if indexing}
-        Indexing…
+        {t("search.indexing")}
       {:else if busy}
-        Searching…
+        {t("search.searching")}
       {:else if query}
         {matches.length ? activeIndex + 1 : 0}/{matches.length}{truncated ? "+" : ""}
       {/if}
     </span>
     <button
       type="button"
-      aria-label="Previous match"
+      aria-label={t("search.previous")}
       disabled={!matches.length}
       onclick={onPrevious}
     >
@@ -104,12 +105,12 @@
         <path d="m4 10 4-4 4 4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
     </button>
-    <button type="button" aria-label="Next match" disabled={!matches.length} onclick={onNext}>
+    <button type="button" aria-label={t("search.next")} disabled={!matches.length} onclick={onNext}>
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
         <path d="m4 6 4 4 4-4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
     </button>
-    <button type="button" aria-label="Close search" onclick={onClose}>
+    <button type="button" aria-label={t("search.close")} onclick={onClose}>
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
         <path d="m4 4 8 8m0-8-8 8" stroke-width="1.6" stroke-linecap="round" />
       </svg>
@@ -117,7 +118,7 @@
   </div>
 
   {#if query && matches.length}
-    <ol class="search-results" aria-label="Search results">
+    <ol class="search-results" aria-label={t("search.ariaResults")}>
       {#each matches.slice(0, 100) as match, index (`${match.blockId}:${match.lineNumber}:${index}`)}
         <li>
           <button
@@ -126,7 +127,7 @@
             aria-current={index === activeIndex ? "true" : undefined}
             onclick={() => onSelect(index)}
           >
-            <span class="search-line">Line {match.lineNumber}</span>
+            <span class="search-line">{t("search.line", { number: match.lineNumber })}</span>
             <span class="search-preview"
               >{match.preview.slice(0, match.previewMatchStart)}<mark
                 >{match.preview.slice(match.previewMatchStart, match.previewMatchEnd)}</mark

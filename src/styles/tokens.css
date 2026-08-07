@@ -37,6 +37,11 @@
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
+  /* Reading area metrics, overridden from preferences at runtime. */
+  --content-width: 48rem;
+  --content-font-size: 1.04rem;
+  --content-font: var(--font-content);
+
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;

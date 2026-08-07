@@ -3,8 +3,10 @@
  *
  * The webview's native menu is always suppressed, so this module decides which
  * surface was clicked and which commands that surface offers. Keeping it free of
- * Svelte state makes every menu a plain, testable value.
+ * Svelte state makes every menu a plain, testable value. Labels arrive via the
+ * `t` translator parameter so the module stays a pure consumer of i18n.
  */
+import type { MessageKey } from "../features/i18n/messages/en";
 
 export type ContextSurface = "tab" | "field" | "editor" | "outline" | "document" | "app";
 
@@ -29,6 +31,9 @@ export interface ContextMenuItem {
 }
 
 export type ContextMenuEntry = ContextMenuItem | { kind: "separator" };
+
+/** Translator shape this module consumes; the real `t` satisfies it. */
+export type Translator = (key: MessageKey) => string;
 
 /** Editor commands the menu drives, implemented by the editor workspace. */
 export interface EditorContextCommands {
@@ -72,6 +77,7 @@ export interface ContextMenuActions {
   toggleEditing: () => void;
   toggleOutline: () => void;
   toggleTheme: () => void;
+  openSettings: () => void;
 }
 
 /** Text fields whose caret LitheMark can address for cut, paste and select all. */
@@ -118,122 +124,155 @@ export function classifyContextTarget(
 export function buildContextMenu(
   target: ContextTarget,
   actions: ContextMenuActions,
+  t: Translator,
 ): ContextMenuEntry[] {
   switch (target.surface) {
     case "tab":
-      return compact(tabMenu(target.documentId!, actions));
+      return compact(tabMenu(target.documentId!, actions, t));
     case "field":
-      return compact(fieldMenu(target.field!, actions));
+      return compact(fieldMenu(target.field!, actions, t));
     case "editor":
-      return compact(editorMenu(actions));
+      return compact(editorMenu(actions, t));
     case "outline":
-      return compact(outlineMenu(actions));
+      return compact(outlineMenu(actions, t));
     case "document":
-      return compact(documentMenu(target, actions));
+      return compact(documentMenu(target, actions, t));
     default:
-      return compact(appMenu(actions));
+      return compact(appMenu(actions, t));
   }
 }
 
-function tabMenu(documentId: string, actions: ContextMenuActions): ContextMenuEntry[] {
+function tabMenu(
+  documentId: string,
+  actions: ContextMenuActions,
+  t: Translator,
+): ContextMenuEntry[] {
   return [
-    item("tab-close", "Close tab", () => actions.closeTab(documentId), { hint: "Ctrl+W" }),
-    item("tab-close-others", "Close other tabs", () => actions.closeOtherTabs(documentId), {
-      disabled: actions.tabCount < 2,
+    item("tab-close", "context.tab.close", t, () => actions.closeTab(documentId), {
+      hint: "Ctrl+W",
     }),
-    item("tab-close-all", "Close all tabs", () => actions.closeAllTabs()),
+    item(
+      "tab-close-others",
+      "context.tab.closeOthers",
+      t,
+      () => actions.closeOtherTabs(documentId),
+      {
+        disabled: actions.tabCount < 2,
+      },
+    ),
+    item("tab-close-all", "context.tab.closeAll", t, () => actions.closeAllTabs()),
     separator(),
-    item("tab-copy-path", "Copy file path", () => actions.copyTabPath(documentId)),
+    item("tab-copy-path", "context.tab.copyPath", t, () => actions.copyTabPath(documentId)),
   ];
 }
 
-function fieldMenu(field: FieldElement, actions: ContextMenuActions): ContextMenuEntry[] {
+function fieldMenu(
+  field: FieldElement,
+  actions: ContextMenuActions,
+  t: Translator,
+): ContextMenuEntry[] {
   const hasSelection = field.selectionStart !== field.selectionEnd;
   return [
-    item("field-cut", "Cut", () => actions.fieldCut(field), {
+    item("field-cut", "context.cut", t, () => actions.fieldCut(field), {
       hint: "Ctrl+X",
       disabled: !hasSelection,
     }),
-    item("field-copy", "Copy", () => actions.fieldCopy(field), {
+    item("field-copy", "context.copy", t, () => actions.fieldCopy(field), {
       hint: "Ctrl+C",
       disabled: !hasSelection,
     }),
-    item("field-paste", "Paste", () => actions.fieldPaste(field), { hint: "Ctrl+V" }),
+    item("field-paste", "context.paste", t, () => actions.fieldPaste(field), { hint: "Ctrl+V" }),
     separator(),
-    item("field-select-all", "Select all", () => actions.fieldSelectAll(field), { hint: "Ctrl+A" }),
+    item("field-select-all", "context.selectAll", t, () => actions.fieldSelectAll(field), {
+      hint: "Ctrl+A",
+    }),
   ];
 }
 
-function editorMenu(actions: ContextMenuActions): ContextMenuEntry[] {
+function editorMenu(actions: ContextMenuActions, t: Translator): ContextMenuEntry[] {
   const editor = actions.editor;
   const hasSelection = editor?.hasSelection() ?? false;
   return [
-    item("editor-cut", "Cut", () => editor?.cut(), {
+    item("editor-cut", "context.cut", t, () => editor?.cut(), {
       hint: "Ctrl+X",
       disabled: !editor || !hasSelection,
     }),
-    item("editor-copy", "Copy", () => editor?.copy(), {
+    item("editor-copy", "context.copy", t, () => editor?.copy(), {
       hint: "Ctrl+C",
       disabled: !editor || !hasSelection,
     }),
-    item("editor-paste", "Paste", () => editor?.paste(), { hint: "Ctrl+V", disabled: !editor }),
+    item("editor-paste", "context.paste", t, () => editor?.paste(), {
+      hint: "Ctrl+V",
+      disabled: !editor,
+    }),
     separator(),
-    item("editor-select-all", "Select all", () => editor?.selectAll(), {
+    item("editor-select-all", "context.selectAll", t, () => editor?.selectAll(), {
       hint: "Ctrl+A",
       disabled: !editor,
     }),
     separator(),
-    item("editor-undo", "Undo", () => editor?.undo(), { hint: "Ctrl+Z", disabled: !editor }),
-    item("editor-redo", "Redo", () => editor?.redo(), { hint: "Ctrl+Y", disabled: !editor }),
+    item("editor-undo", "context.undo", t, () => editor?.undo(), {
+      hint: "Ctrl+Z",
+      disabled: !editor,
+    }),
+    item("editor-redo", "context.redo", t, () => editor?.redo(), {
+      hint: "Ctrl+Y",
+      disabled: !editor,
+    }),
     separator(),
-    item("editor-find", "Find and replace", () => editor?.find(), { disabled: !editor }),
-    item("editor-palette", "Command palette", () => editor?.commandPalette(), {
+    item("editor-find", "context.findReplace", t, () => editor?.find(), { disabled: !editor }),
+    item("editor-palette", "context.commandPalette", t, () => editor?.commandPalette(), {
       hint: "Ctrl+Shift+P",
       disabled: !editor,
     }),
     separator(),
-    item("editor-save", "Save file", () => actions.save(), {
+    item("editor-save", "context.saveFile", t, () => actions.save(), {
       hint: "Ctrl+S",
       disabled: !actions.dirty || actions.saving,
     }),
-    item("editor-stop", "Stop editing", () => actions.toggleEditing()),
+    item("editor-stop", "context.stopEditing", t, () => actions.toggleEditing()),
   ];
 }
 
-function outlineMenu(actions: ContextMenuActions): ContextMenuEntry[] {
+function outlineMenu(actions: ContextMenuActions, t: Translator): ContextMenuEntry[] {
   return [
-    item("outline-hide", "Hide outline", () => actions.toggleOutline()),
+    item("outline-hide", "context.hideOutline", t, () => actions.toggleOutline()),
     separator(),
-    item("outline-find", "Find in document", () => actions.find(), {
+    item("outline-find", "context.findInDocument", t, () => actions.find(), {
       hint: "Ctrl+F",
       disabled: !actions.hasDocument,
     }),
-    item("outline-open", "Open file…", () => actions.openFile(), { hint: "Ctrl+O" }),
+    item("outline-open", "context.openFile", t, () => actions.openFile(), { hint: "Ctrl+O" }),
   ];
 }
 
-function documentMenu(target: ContextTarget, actions: ContextMenuActions): ContextMenuEntry[] {
+function documentMenu(
+  target: ContextTarget,
+  actions: ContextMenuActions,
+  t: Translator,
+): ContextMenuEntry[] {
   const entries: ContextMenuEntry[] = [];
   const href = target.linkHref;
 
   if (href) {
     entries.push(
-      item("link-open", href.startsWith("#") ? "Go to section" : "Open link", () =>
+      item("link-open", href.startsWith("#") ? "context.goToSection" : "context.openLink", t, () =>
         actions.openLink(href),
       ),
-      item("link-copy", "Copy link address", () => actions.copyText(href)),
+      item("link-copy", "context.copyLinkAddress", t, () => actions.copyText(href)),
       separator(),
     );
   }
 
   entries.push(
-    item("document-copy", "Copy", () => actions.copyText(target.selectionText), {
+    item("document-copy", "context.copy", t, () => actions.copyText(target.selectionText), {
       hint: "Ctrl+C",
       disabled: !target.selectionText,
     }),
     item(
       "document-select-all",
-      "Select all",
+      "context.selectAll",
+      t,
       () => target.region && actions.selectAllRegion(target.region),
       {
         hint: "Ctrl+A",
@@ -241,45 +280,60 @@ function documentMenu(target: ContextTarget, actions: ContextMenuActions): Conte
       },
     ),
     separator(),
-    item("document-find", "Find in document", () => actions.find(), { hint: "Ctrl+F" }),
-    item("document-edit", actions.editing ? "Stop editing" : "Edit document", () =>
+    item("document-find", "context.findInDocument", t, () => actions.find(), { hint: "Ctrl+F" }),
+    item("document-edit", actions.editing ? "context.stopEditing" : "context.editDocument", t, () =>
       actions.toggleEditing(),
     ),
-    item("document-outline", actions.outlineOpen ? "Hide outline" : "Show outline", () =>
-      actions.toggleOutline(),
+    item(
+      "document-outline",
+      actions.outlineOpen ? "context.hideOutline" : "context.showOutline",
+      t,
+      () => actions.toggleOutline(),
     ),
     separator(),
-    item("document-open", "Open file…", () => actions.openFile(), { hint: "Ctrl+O" }),
+    item("document-open", "context.openFile", t, () => actions.openFile(), { hint: "Ctrl+O" }),
   );
 
   return entries;
 }
 
-function appMenu(actions: ContextMenuActions): ContextMenuEntry[] {
+function appMenu(actions: ContextMenuActions, t: Translator): ContextMenuEntry[] {
   return [
-    item("app-open", "Open file…", () => actions.openFile(), { hint: "Ctrl+O" }),
-    item("app-find", "Find in document", () => actions.find(), {
+    item("app-open", "context.openFile", t, () => actions.openFile(), { hint: "Ctrl+O" }),
+    item("app-find", "context.findInDocument", t, () => actions.find(), {
       hint: "Ctrl+F",
       disabled: !actions.hasDocument,
     }),
     item(
       "app-outline",
-      actions.outlineOpen ? "Hide outline" : "Show outline",
+      actions.outlineOpen ? "context.hideOutline" : "context.showOutline",
+      t,
       () => actions.toggleOutline(),
       { disabled: !actions.hasDocument },
     ),
     separator(),
-    item("app-theme", "Toggle color theme", () => actions.toggleTheme()),
+    item("app-theme", "context.toggleTheme", t, () => actions.toggleTheme()),
+    item("app-settings", "context.openSettings", t, () => actions.openSettings(), {
+      hint: "Ctrl+,",
+    }),
   ];
 }
 
 function item(
   id: string,
-  label: string,
+  labelKey: MessageKey,
+  t: Translator,
   run: () => void,
   options: { hint?: string; disabled?: boolean } = {},
 ): ContextMenuItem {
-  return { kind: "item", id, label, run, hint: options.hint, disabled: options.disabled };
+  return {
+    kind: "item",
+    id,
+    label: t(labelKey),
+    run,
+    hint: options.hint,
+    disabled: options.disabled,
+  };
 }
 
 function separator(): ContextMenuEntry {
