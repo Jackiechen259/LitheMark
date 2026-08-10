@@ -931,6 +931,66 @@
   color: var(--text-secondary);
 }
 
+/* Modal dialog (UnsavedChangesDialog): a fixed backdrop centering the alert card. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in srgb, #0c0a06 42%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.dialog-card {
+  width: min(calc(100% - 2rem), 26rem);
+  padding: var(--space-6);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-lg);
+}
+
+.dialog-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.dialog-message {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  font: 0.88rem/1.5 var(--font-ui);
+}
+
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+
+/*
+ * .danger-button stacks on .primary-button (same sizing) and swaps the accent
+ * background for the danger token. It sits after .primary-button so its overrides
+ * win; the hover darkens the danger color like accent-strong does for accent.
+ */
+.danger-button {
+  color: var(--accent-contrast);
+  background: var(--danger);
+}
+
+.danger-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 84%, #0c0a06);
+}
+
+.danger-button:focus-visible {
+  outline-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
+
 @keyframes loading-spin {
   to {
     transform: rotate(360deg);
@@ -983,6 +1043,7 @@
   button,
   input,
   .context-menu,
+  .dialog-card,
   .error-notice,
   .document-change-notice {
     border: 1px solid CanvasText;
