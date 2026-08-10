@@ -167,6 +167,11 @@ export const zh: Record<MessageKey, string> = {
   "document.indexing": "正在索引文档…",
   "shell.skipToDocument": "跳到文档",
 
+  "titlebar.minimize": "最小化",
+  "titlebar.maximize": "最大化",
+  "titlebar.restore": "还原",
+  "titlebar.close": "关闭",
+
   "updates.available": "LitheMark {version} 可用。",
   "updates.downloading": "正在下载更新…",
   "updates.downloadingPercent": "正在下载更新… {percent}%",

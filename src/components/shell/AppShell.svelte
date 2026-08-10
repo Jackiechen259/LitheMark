@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { t } from "../../features/i18n/i18n.svelte";
+  import TitleBar from "./TitleBar.svelte";
 
   let {
     header,
@@ -18,6 +19,7 @@
 <div class="app-shell">
   <a class="skip-link" href="#app-main">{t("shell.skipToDocument")}</a>
   <header class="app-header">
+    <TitleBar />
     {@render header()}
   </header>
 

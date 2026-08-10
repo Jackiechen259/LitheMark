@@ -27,6 +27,65 @@
   background: var(--surface-app);
 }
 
+.title-bar {
+  display: flex;
+  align-items: stretch;
+  height: 36px;
+  flex: none;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-app);
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.title-bar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.title-bar-drag-zone {
+  min-width: 2rem;
+  flex: 1;
+}
+
+.title-bar-controls {
+  display: flex;
+  height: 100%;
+  margin-left: auto;
+}
+
+.title-bar-button {
+  display: grid;
+  width: 46px;
+  height: 100%;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.title-bar-button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.title-bar-button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.title-bar-button.close:hover {
+  background: #c42b1c;
+  color: white;
+}
+
 .header-stack {
   min-width: 0;
 }

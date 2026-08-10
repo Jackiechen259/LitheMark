@@ -169,6 +169,11 @@ export const en = {
   "document.indexing": "Indexing document…",
   "shell.skipToDocument": "Skip to document",
 
+  "titlebar.minimize": "Minimize",
+  "titlebar.maximize": "Maximize",
+  "titlebar.restore": "Restore",
+  "titlebar.close": "Close",
+
   "updates.available": "LitheMark {version} is available.",
   "updates.downloading": "Downloading the update…",
   "updates.downloadingPercent": "Downloading the update… {percent}%",
