@@ -192,11 +192,8 @@ export const en = {
   "error.dismiss": "Dismiss",
   "error.fallback": "LitheMark encountered an unexpected error. Please try again.",
 
-  "confirm.saveBeforeAction": "Save changes to {name} before {action}?",
-  "confirm.discardBeforeAction": "Discard unsaved changes to {name}?",
   "confirm.saveChanges": "Save changes to {name}?",
   "confirm.discardDraft": "Discard the unsaved draft?",
-  "confirm.action.closingApp": "closing LitheMark",
 
   "confirm.unsaved.title": "Unsaved changes",
   "confirm.unsaved.tab.message": "Save changes to {name} before closing this tab?",

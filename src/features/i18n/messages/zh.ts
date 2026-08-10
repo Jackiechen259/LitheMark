@@ -190,11 +190,8 @@ export const zh: Record<MessageKey, string> = {
   "error.dismiss": "关闭",
   "error.fallback": "LitheMark 遇到了意外错误。请重试。",
 
-  "confirm.saveBeforeAction": "{action}前是否保存对 {name} 的改动？",
-  "confirm.discardBeforeAction": "是否放弃对 {name} 的未保存改动？",
   "confirm.saveChanges": "是否保存对 {name} 的改动？",
   "confirm.discardDraft": "是否放弃未保存的草稿？",
-  "confirm.action.closingApp": "关闭 LitheMark",
 
   "confirm.unsaved.title": "未保存的更改",
   "confirm.unsaved.tab.message": "关闭此标签页前是否保存对 {name} 的更改？",

@@ -204,16 +204,40 @@
         .onCloseRequested(async (event) => {
           if (allowWindowClose) return;
           event.preventDefault();
-          for (const tab of [...appState.tabs]) {
-            if (tab.dirty && !(await confirmDirtyTab(tab, t("confirm.action.closingApp")))) return;
-          }
-          allowWindowClose = true;
+          if (closeDecisionInFlight) return;
+          closeDecisionInFlight = true;
           try {
-            await currentWindow.close();
-          } catch (error) {
-            // A refused close must not leave the window permanently unclosable.
-            allowWindowClose = false;
-            showError(error);
+            const dirtyTabs = appState.tabs.filter((tab) => tab.dirty);
+
+            if (dirtyTabs.length > 0) {
+              const decision = await requestUnsavedDecision({
+                scope: "app",
+                names: dirtyTabs.map((tab) => tab.metadata.name),
+              });
+
+              if (decision === "cancel") return;
+
+              if (decision === "save") {
+                // Serial, never Promise.all: a save may hit a conflict or merge, and the user
+                // must see which document failed. On the first failure, do NOT close.
+                for (const tab of dirtyTabs) {
+                  const saved = await saveTab(tab);
+                  if (!saved) return;
+                }
+              }
+              // decision === "discard": intentionally do not write any draft to disk
+            }
+
+            allowWindowClose = true;
+            try {
+              await currentWindow.close();
+            } catch (error) {
+              // A refused close must not leave the window permanently unclosable.
+              allowWindowClose = false;
+              showError(error);
+            }
+          } finally {
+            if (!allowWindowClose) closeDecisionInFlight = false;
           }
         })
         .then((unlisten) => {
@@ -349,17 +373,6 @@
     } catch (error) {
       showError(error);
     }
-  }
-
-  async function confirmDirtyTab(
-    tab: (typeof appState.tabs)[number],
-    action: string,
-  ): Promise<boolean> {
-    const saveFirst = window.confirm(
-      t("confirm.saveBeforeAction", { name: tab.metadata.name, action }),
-    );
-    if (saveFirst) return saveTab(tab);
-    return window.confirm(t("confirm.discardBeforeAction", { name: tab.metadata.name }));
   }
 
   /** Open the unsaved-changes dialog and resolve with the user's choice. */
