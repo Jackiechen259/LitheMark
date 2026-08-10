@@ -605,4 +605,19 @@ describe("App", () => {
     await waitFor(() => expect(nativeWindow.close).toHaveBeenCalledTimes(2));
     expect(service.saveEdit).not.toHaveBeenCalled();
   });
+
+  it("closes the app immediately, without a prompt, when no tab is dirty", async () => {
+    service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\clean.md"]);
+    service.openDocument.mockResolvedValue(openResult("doc-clean", "clean.md"));
+
+    render(App);
+    await fireEvent.click(screen.getByRole("button", { name: "Open file" }));
+    await screen.findByRole("heading", { name: "Hello" });
+
+    const preventDefault = requestAppClose();
+
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(nativeWindow.close).toHaveBeenCalledOnce());
+  });
 });

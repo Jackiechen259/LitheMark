@@ -24,19 +24,20 @@
   let cancelButton = $state<HTMLButtonElement | null>(null);
   let previousFocus: HTMLElement | null = null;
 
-  // On open, move keyboard focus to the neutral Cancel button and hand it back to
-  // whatever had it on close. Never default-focus the destructive button.
+  // On open, move keyboard focus to the neutral Cancel button. Restore focus to whatever
+  // had it before the dialog when this effect tears down — either because the component
+  // unmounts (App mounts the dialog conditionally) or because `open` flips to false.
+  // Never default-focus the destructive button.
   $effect(() => {
-    if (open) {
-      previousFocus =
-        globalThis.document.activeElement instanceof HTMLElement
-          ? globalThis.document.activeElement
-          : null;
-      cancelButton?.focus();
-    } else if (previousFocus?.isConnected) {
-      previousFocus.focus();
-      previousFocus = null;
-    }
+    if (!open) return;
+    previousFocus =
+      globalThis.document.activeElement instanceof HTMLElement
+        ? globalThis.document.activeElement
+        : null;
+    cancelButton?.focus();
+    return () => {
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
   });
 
   // Escape dismisses via Cancel and must not reach the app's window-level listener.
