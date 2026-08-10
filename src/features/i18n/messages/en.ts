@@ -199,6 +199,18 @@ export const en = {
   "confirm.action.closingTab": "closing this tab",
   "confirm.action.closingApp": "closing LitheMark",
 
+  "confirm.unsaved.title": "Unsaved changes",
+  "confirm.unsaved.tab.message": "Save changes to {name} before closing this tab?",
+  "confirm.unsaved.app.single": "Save changes to {name} before closing LitheMark?",
+  "confirm.unsaved.app.multiple":
+    "{count} documents have unsaved changes. Save them before closing LitheMark?",
+  "confirm.unsaved.save": "Save",
+  "confirm.unsaved.saveAndExit": "Save and Exit",
+  "confirm.unsaved.saveAllAndExit": "Save All and Exit",
+  "confirm.unsaved.discard": "Don't Save",
+  "confirm.unsaved.exitWithoutSaving": "Exit Without Saving",
+  "confirm.unsaved.cancel": "Cancel",
+
   "clipboard.writeFailed": "LitheMark could not write to the clipboard.",
   "clipboard.readFailed": "LitheMark could not read the clipboard. Press Ctrl+V to paste instead.",
 

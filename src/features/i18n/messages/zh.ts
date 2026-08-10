@@ -197,6 +197,17 @@ export const zh: Record<MessageKey, string> = {
   "confirm.action.closingTab": "关闭此标签页",
   "confirm.action.closingApp": "关闭 LitheMark",
 
+  "confirm.unsaved.title": "未保存的更改",
+  "confirm.unsaved.tab.message": "关闭此标签页前是否保存对 {name} 的更改？",
+  "confirm.unsaved.app.single": "退出 LitheMark 前是否保存对 {name} 的更改？",
+  "confirm.unsaved.app.multiple": "{count} 个文档包含未保存的更改。退出 LitheMark 前是否全部保存？",
+  "confirm.unsaved.save": "保存",
+  "confirm.unsaved.saveAndExit": "保存并退出",
+  "confirm.unsaved.saveAllAndExit": "全部保存并退出",
+  "confirm.unsaved.discard": "不保存",
+  "confirm.unsaved.exitWithoutSaving": "不保存并退出",
+  "confirm.unsaved.cancel": "取消",
+
   "clipboard.writeFailed": "LitheMark 无法写入剪贴板。",
   "clipboard.readFailed": "LitheMark 无法读取剪贴板。请按 Ctrl+V 粘贴。",
 
