@@ -225,6 +225,7 @@ jobs:
           rm release-artifacts/RELEASE_NOTES.md
 
       - name: Check release does not already exist
+        if: ${{ github.event_name == 'push' || inputs.publish == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
