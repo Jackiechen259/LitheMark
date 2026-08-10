@@ -196,7 +196,6 @@ export const en = {
   "confirm.discardBeforeAction": "Discard unsaved changes to {name}?",
   "confirm.saveChanges": "Save changes to {name}?",
   "confirm.discardDraft": "Discard the unsaved draft?",
-  "confirm.action.closingTab": "closing this tab",
   "confirm.action.closingApp": "closing LitheMark",
 
   "confirm.unsaved.title": "Unsaved changes",

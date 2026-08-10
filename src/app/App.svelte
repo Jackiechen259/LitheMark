@@ -318,9 +318,29 @@
 
   async function closeTab(documentId: string) {
     const tab = appState.tabs.find((candidate) => candidate.documentId === documentId);
-    if (tab?.dirty && !(await confirmDirtyTab(tab, t("confirm.action.closingTab")))) return;
+    if (!tab) return;
+
+    if (tab.dirty) {
+      if (closeDecisionInFlight) return; // no second prompt while deciding
+      closeDecisionInFlight = true;
+      try {
+        const decision = await requestUnsavedDecision({
+          scope: "tab",
+          names: [tab.metadata.name],
+        });
+        if (decision === "cancel") return; // tab and draft stay untouched
+        if (decision === "save") {
+          const saved = await saveTab(tab);
+          if (!saved) return; // save failed/conflict: keep the tab open
+        }
+        // decision === "discard": fall through — do NOT call saveTab/saveEdit here
+      } finally {
+        closeDecisionInFlight = false;
+      }
+    }
+
     try {
-      if (tab?.editing) await discardEdit(documentId);
+      if (tab.editing) await discardEdit(documentId);
       await closeDocument(documentId);
       editorSources.delete(documentId);
       localAssetCache.clearDocument(documentId);
