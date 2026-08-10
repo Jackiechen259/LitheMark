@@ -1,8 +1,27 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/svelte";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.svelte";
 import { PREFERENCE_DEFAULTS } from "../features/settings/settings-service";
+
+// jsdom does not implement Range geometry. CodeMirror's drawSelection layer re-measures the
+// view when a save changes the draft revision, calling range.getClientRects(); an empty rect
+// list is a graceful no-op there, so this keeps the test output free of stray errors.
+if (typeof Range !== "undefined" && !Range.prototype.getClientRects) {
+  const emptyRects = [] as unknown as DOMRectList;
+  Range.prototype.getClientRects = () => emptyRects;
+  Range.prototype.getBoundingClientRect = () => ({
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
+    width: 0,
+    height: 0,
+    toJSON: () => ({}),
+  });
+}
 
 const service = vi.hoisted(() => ({
   selectMarkdownFiles: vi.fn(),
@@ -36,6 +55,11 @@ const updates = vi.hoisted(() => ({
     relaunch: vi.fn(),
   },
 }));
+// Captures the native close handler so tests can drive a real `onCloseRequested` event.
+const nativeWindow = vi.hoisted(() => ({
+  close: vi.fn(),
+  closeHandler: undefined as ((event: { preventDefault: () => void }) => Promise<void>) | undefined,
+}));
 
 vi.mock("../features/documents/document-service", () => service);
 vi.mock("../features/settings/settings-service", async (importOriginal) => {
@@ -51,6 +75,15 @@ vi.mock("../features/settings/settings-service", async (importOriginal) => {
 vi.mock("../features/updates/update-service", () => updates);
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(vi.fn()),
+}));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    onCloseRequested: vi.fn(async (handler) => {
+      nativeWindow.closeHandler = handler;
+      return vi.fn();
+    }),
+    close: nativeWindow.close,
+  }),
 }));
 
 function openResult(id: string, name: string, html = "<h1>Hello</h1><p>Safe content</p>") {
@@ -84,6 +117,85 @@ function openResult(id: string, name: string, html = "<h1>Hello</h1><p>Safe cont
   };
 }
 
+/** The resolved shape `saveTab` expects from `saveEdit` for a successful save. */
+function saveResult(id: string, name: string) {
+  return {
+    // `SaveEditResult.document` is a full `OpenDocumentResult` (saveTab passes it straight
+    // to `appState.open`), not a bare `DocumentMetadata`.
+    document: openResult(id, name),
+    edit: { draftRevision: 2 },
+  };
+}
+
+/** Open a single file and enter edit mode so its tab becomes dirty (no CodeMirror needed). */
+async function openAndEditSingleDirtyTab() {
+  service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\a.md"]);
+  service.openDocument.mockResolvedValue(openResult("doc-a", "a.md", "<h1>A</h1>"));
+  service.beginEdit.mockResolvedValue({
+    documentId: "doc-a",
+    documentRevision: 1,
+    draftRevision: 1,
+    totalChars: 8,
+    lineCount: 1,
+    dirty: true,
+  });
+  service.getEditorChunk.mockResolvedValue({
+    documentId: "doc-a",
+    draftRevision: 1,
+    startChar: 0,
+    nextChar: 8,
+    totalChars: 8,
+    text: "# A",
+  });
+
+  render(App);
+  await fireEvent.click(screen.getByRole("button", { name: "Open file" }));
+  await screen.findByRole("heading", { name: "A" });
+  await fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  await screen.findByLabelText("Markdown source editor");
+}
+
+/** Open two files and enter edit mode on both so both tabs become dirty. */
+async function openAndEditTwoDirtyTabs() {
+  service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\a.md", "C:\\notes\\b.md"]);
+  service.openDocument
+    .mockResolvedValueOnce(openResult("doc-a", "a.md", "<h1>A</h1>"))
+    .mockResolvedValueOnce(openResult("doc-b", "b.md", "<h1>B</h1>"));
+  service.beginEdit.mockImplementation(async (documentId: string) => ({
+    documentId,
+    documentRevision: 1,
+    draftRevision: 1,
+    totalChars: 8,
+    lineCount: 1,
+    dirty: true,
+  }));
+  service.getEditorChunk.mockImplementation(async (documentId: string) => ({
+    documentId,
+    draftRevision: 1,
+    startChar: 0,
+    nextChar: 8,
+    totalChars: 8,
+    text: "# A",
+  }));
+
+  render(App);
+  await fireEvent.click(screen.getByRole("button", { name: "Open file" }));
+  await screen.findByRole("heading", { name: "B" });
+  await fireEvent.click(screen.getByRole("tab", { name: "a.md" }));
+  await fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  await screen.findByLabelText("Markdown source editor");
+  await fireEvent.click(screen.getByRole("tab", { name: "b.md" }));
+  await fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  await screen.findByLabelText("Markdown source editor");
+}
+
+/** Drive the captured native close handler; returns the preventDefault spy for assertions. */
+function requestAppClose() {
+  const preventDefault = vi.fn();
+  nativeWindow.closeHandler?.({ preventDefault });
+  return preventDefault;
+}
+
 describe("App", () => {
   beforeEach(() => {
     Object.values(service).forEach((mock) => mock.mockReset());
@@ -102,11 +214,16 @@ describe("App", () => {
     service.closeDocument.mockResolvedValue(undefined);
     service.cancelSearch.mockResolvedValue(undefined);
     service.discardEdit.mockResolvedValue(undefined);
+    service.saveEdit.mockImplementation(async (documentId: string) =>
+      saveResult(documentId, "saved.md"),
+    );
     service.checkDocumentChange.mockResolvedValue({
       documentId: "none",
       changed: false,
       fingerprint: "same",
     });
+    nativeWindow.close.mockReset();
+    nativeWindow.closeHandler = undefined;
   });
 
   it("opens and displays a rendered Markdown document", async () => {
@@ -320,5 +437,172 @@ describe("App", () => {
     expect(screen.getByRole("region", { name: "Markdown preview" })).toBeVisible();
     expect(service.beginEdit).toHaveBeenCalledWith("doc-edit", 1);
     expect(service.getEditorChunk).toHaveBeenCalledWith("doc-edit", 0, 262_144, 1);
+  });
+
+  it("closes a dirty tab after Save, persisting the draft first", async () => {
+    await openAndEditSingleDirtyTab();
+    service.saveEdit.mockResolvedValue(saveResult("doc-a", "a.md"));
+
+    await fireEvent.click(screen.getByRole("button", { name: "Close a.md" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Save changes to a.md before closing this tab?");
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(service.saveEdit).toHaveBeenCalledWith("doc-a", 1);
+      expect(service.discardEdit).toHaveBeenCalledWith("doc-a");
+      expect(service.closeDocument).toHaveBeenCalledWith("doc-a");
+    });
+    await waitFor(() => expect(screen.queryByRole("tab")).not.toBeInTheDocument());
+  });
+
+  it("closes a dirty tab with Don't Save, skipping the save", async () => {
+    await openAndEditSingleDirtyTab();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Close a.md" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Don't Save" }));
+
+    await waitFor(() => {
+      expect(service.saveEdit).not.toHaveBeenCalled();
+      expect(service.discardEdit).toHaveBeenCalledWith("doc-a");
+      expect(service.closeDocument).toHaveBeenCalledWith("doc-a");
+    });
+    await waitFor(() => expect(screen.queryByRole("tab")).not.toBeInTheDocument());
+  });
+
+  it("keeps a dirty tab open when the tab close dialog is cancelled", async () => {
+    await openAndEditSingleDirtyTab();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Close a.md" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(service.saveEdit).not.toHaveBeenCalled();
+    expect(service.discardEdit).not.toHaveBeenCalled();
+    expect(service.closeDocument).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: "a.md" })).toBeVisible();
+    expect(screen.getByLabelText("Markdown source editor")).toBeVisible();
+  });
+
+  it("exits the app without saving when Exit Without Saving is chosen", async () => {
+    await openAndEditSingleDirtyTab();
+
+    const preventDefault = requestAppClose();
+    expect(preventDefault).toHaveBeenCalled();
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Save changes to a.md before closing LitheMark?");
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Exit Without Saving" }));
+
+    await waitFor(() => expect(nativeWindow.close).toHaveBeenCalledOnce());
+    expect(service.saveEdit).not.toHaveBeenCalled();
+  });
+
+  it("keeps the app open when the app close dialog is cancelled", async () => {
+    await openAndEditSingleDirtyTab();
+
+    const preventDefault = requestAppClose();
+    expect(preventDefault).toHaveBeenCalled();
+
+    const dialog = await screen.findByRole("alertdialog");
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(nativeWindow.close).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: "a.md" })).toBeVisible();
+  });
+
+  it("saves the draft and exits when Save and Exit is chosen", async () => {
+    await openAndEditSingleDirtyTab();
+    service.saveEdit.mockResolvedValue(saveResult("doc-a", "a.md"));
+
+    const preventDefault = requestAppClose();
+    expect(preventDefault).toHaveBeenCalled();
+
+    const dialog = await screen.findByRole("alertdialog");
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Save and Exit" }));
+
+    await waitFor(() => {
+      expect(service.saveEdit).toHaveBeenCalledWith("doc-a", 1);
+      expect(nativeWindow.close).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("saves all dirty tabs in order and exits when Save All and Exit is chosen", async () => {
+    await openAndEditTwoDirtyTabs();
+
+    const preventDefault = requestAppClose();
+    expect(preventDefault).toHaveBeenCalled();
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(screen.getAllByRole("alertdialog")).toHaveLength(1);
+    expect(dialog).toHaveTextContent(
+      "2 documents have unsaved changes. Save them before closing LitheMark?",
+    );
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Save All and Exit" }));
+
+    await waitFor(() => expect(nativeWindow.close).toHaveBeenCalledOnce());
+    expect(service.saveEdit).toHaveBeenNthCalledWith(1, "doc-a", 1);
+    expect(service.saveEdit).toHaveBeenNthCalledWith(2, "doc-b", 1);
+  });
+
+  it("exits without saving any of several dirty tabs", async () => {
+    await openAndEditTwoDirtyTabs();
+
+    const preventDefault = requestAppClose();
+    expect(preventDefault).toHaveBeenCalled();
+
+    const dialog = await screen.findByRole("alertdialog");
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Exit Without Saving" }));
+
+    await waitFor(() => expect(nativeWindow.close).toHaveBeenCalledOnce());
+    expect(service.saveEdit).not.toHaveBeenCalled();
+  });
+
+  it("aborts the app close and keeps the window open when a save fails mid-way", async () => {
+    await openAndEditTwoDirtyTabs();
+    service.saveEdit.mockResolvedValueOnce(saveResult("doc-a", "a.md")).mockRejectedValueOnce({
+      code: "io",
+      message: "A file system operation failed.",
+      recoverable: false,
+    });
+
+    const preventDefault = requestAppClose();
+    expect(preventDefault).toHaveBeenCalled();
+
+    const dialog = await screen.findByRole("alertdialog");
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Save All and Exit" }));
+
+    await waitFor(() => expect(service.saveEdit).toHaveBeenNthCalledWith(2, "doc-b", 1));
+    expect(await screen.findByRole("alert")).toHaveTextContent("A file system operation failed.");
+    expect(nativeWindow.close).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
+  });
+
+  it("shows a close error and lets a later close attempt succeed", async () => {
+    await openAndEditSingleDirtyTab();
+    nativeWindow.close.mockRejectedValue(new Error("Close refused"));
+
+    const preventDefault = requestAppClose();
+    expect(preventDefault).toHaveBeenCalled();
+
+    const dialog = await screen.findByRole("alertdialog");
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Exit Without Saving" }));
+
+    await waitFor(() => expect(nativeWindow.close).toHaveBeenCalledOnce());
+    expect(await screen.findByRole("alert")).toHaveTextContent("Close refused");
+
+    // The failed attempt must not leave the window permanently unclosable.
+    nativeWindow.close.mockResolvedValue(undefined);
+    const preventDefaultRetry = requestAppClose();
+    expect(preventDefaultRetry).toHaveBeenCalled();
+
+    const dialogAgain = await screen.findByRole("alertdialog");
+    await fireEvent.click(within(dialogAgain).getByRole("button", { name: "Exit Without Saving" }));
+
+    await waitFor(() => expect(nativeWindow.close).toHaveBeenCalledTimes(2));
+    expect(service.saveEdit).not.toHaveBeenCalled();
   });
 });
