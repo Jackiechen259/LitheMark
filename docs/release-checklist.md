@@ -69,32 +69,58 @@ MSI as unvalidated until it passes on a clean release runner.
 
 ## Publication
 
-Tag the reviewed commit as `v<version>` and push the tag. The `Release` workflow
-([`.github/workflows/release.yml`](../.github/workflows/release.yml)) then reruns the quality
-gates, confirms the tag matches `package.json`, builds and signs the Windows NSIS bundle and
-portable executable, and opens a **draft** release with SHA-256 checksums, `latest.json`, and
-the matching changelog section. Under Tauri v2 the NSIS installer doubles as the updater
-artifact; the build emits a detached `<installer>.sig` whose contents are embedded in
-`latest.json`, so there is no separate `.nsis.zip`.
+Update the three version files and the changelog, then commit and tag. The `Release`
+workflow ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) runs
+automatically for `v*` tag pushes; no manual "Publish release" step exists.
 
 ```shell
-git tag v<version>
-git push origin v<version>
+# Update versions
+#   package.json
+#   src-tauri/Cargo.toml
+#   src-tauri/tauri.conf.json
+# Update CHANGELOG.md
+
+git add .
+git commit -m "chore(release): 0.1.2"
+
+git tag v0.1.2
+git push origin main
+git push origin v0.1.2
 ```
 
-Rerun a build for an existing tag from the Actions tab with the `Release` workflow's manual
-trigger.
+The workflow then automatically:
 
-Before publishing the draft:
+1. verifies the tag matches all three version files (fails immediately otherwise);
+2. reruns every quality gate (frontend format/type/test/build, Rust fmt/clippy/test);
+3. requires `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`;
+4. builds and signs the Windows NSIS bundle and the portable executable;
+5. generates `latest.json`, the detached `.sig`, and `SHA256SUMS.txt` and validates each
+   artifact, including that `latest.json` carries the tag version and the correct installer
+   URL;
+6. publishes the GitHub Release (never a draft) with the changelog section, checksums, and
+   the signing note attached;
+7. verifies GitHub reports the release as published and non-prerelease;
+8. downloads `releases/latest/download/latest.json` end to end and confirms it points at the
+   new installer.
+
+Under Tauri v2 the NSIS installer doubles as the updater artifact; the build emits a detached
+`<installer>.sig` whose contents are embedded in `latest.json`, so there is no separate
+`.nsis.zip`.
+
+### Rebuilding an existing tag
+
+Rerun a build for an existing tag from the Actions tab with the `Release` workflow's manual
+trigger. Manual runs default to build-only (`publish=false`); set `publish=true` to publish
+as well. If a release for the tag already exists, the workflow fails rather than overwriting
+it — delete the existing release first if a re-publish is truly intended.
+
+### After publication
 
 - Install, launch, and uninstall the NSIS bundle on a clean Windows VM.
 - Confirm the attached checksums match the downloaded assets.
-- Confirm `latest.json` carries the new version and a `windows-x86_64` URL that points at this
-  tag's `-setup.exe`.
-- Clearly mark unsigned development builds; production releases should use platform signing.
+- Launch an older installed build: it should detect the new version, verify the updater
+  signature, install, and restart onto the new version.
 
-Publishing the draft is what ships the update: installed copies read
-`releases/latest/download/latest.json`, which resolves only for a published, non-prerelease
-release. After publishing, verify the rollout from an older installed build — it should offer
-the new version, install it, and restart. A release published without its `-setup.exe` and
-`latest.json` assets leaves every installed copy unable to update.
+The updater artifact is cryptographically signed for Tauri update verification; the Windows
+executable is not currently Authenticode code-signed. A release published without its
+`-setup.exe` and `latest.json` assets leaves every installed copy unable to update.

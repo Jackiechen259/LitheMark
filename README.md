@@ -1,5 +1,8 @@
 # LitheMark
 
+![CI](https://github.com/Jackiechen259/LitheMark/actions/workflows/ci.yml/badge.svg)
+![Release](https://github.com/Jackiechen259/LitheMark/actions/workflows/release.yml/badge.svg)
+
 LitheMark is a fast, lightweight, local-first Markdown reader and editor built with Tauri 2, Rust,
 Svelte 5, TypeScript, and Vite.
 

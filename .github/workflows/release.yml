@@ -8,9 +8,17 @@ on:
       tag:
         description: Existing tag to build, for example v0.1.0
         required: true
+      publish:
+        description: Publish the GitHub Release after a successful build
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -45,11 +53,23 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
         run: |
           $tag = if ($env:INPUT_TAG) { $env:INPUT_TAG } else { $env:REF_NAME }
-          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          if ($tag -ne "v$version") {
-            throw "Tag $tag does not match package.json version $version."
+          if ($tag -notmatch '^v\d+\.\d+\.\d+$') {
+            throw "Tag $tag is not a vX.Y.Z tag."
           }
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $expected = $tag.Substring(1)
+          $packageJson = Get-Content package.json -Raw | ConvertFrom-Json
+          $tauriConfig = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $cargoLine = Get-Content src-tauri/Cargo.toml |
+            Where-Object { $_ -match '^version\s*=' } | Select-Object -First 1
+          $cargoVersion = [regex]::Match($cargoLine, '"([^"]+)"').Groups[1].Value
+          $mismatches = @()
+          if ($packageJson.version -ne $expected) { $mismatches += "package.json: $($packageJson.version)" }
+          if ($cargoVersion -ne $expected) { $mismatches += "Cargo.toml: $cargoVersion" }
+          if ($tauriConfig.version -ne $expected) { $mismatches += "tauri.conf.json: $($tauriConfig.version)" }
+          if ($mismatches.Count -gt 0) {
+            throw "Tag $tag does not match:" + [Environment]::NewLine + ($mismatches -join [Environment]::NewLine)
+          }
+          "version=$expected" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Check release metadata and frontend
@@ -74,7 +94,10 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
-            throw "TAURI_SIGNING_PRIVATE_KEY is not configured; updater artifacts cannot be signed."
+            throw "TAURI_SIGNING_PRIVATE_KEY is not configured; updater artifacts cannot be signed. Add it as a repository secret and re-run."
+          }
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
+            throw "TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not configured; the signing key cannot be unlocked. Add it as a repository secret and re-run."
           }
           pnpm desktop:bundle:windows
 
@@ -129,6 +152,37 @@ jobs:
             }
           } | ConvertTo-Json -Depth 4 | Out-File release-artifacts/latest.json -Encoding utf8
 
+      - name: Validate release artifacts
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          $installer = "LitheMark_${env:VERSION}_x64-setup.exe"
+          foreach ($name in $installer, "$installer.sig", "LitheMark_${env:VERSION}_x64.exe", "latest.json", "SHA256SUMS.txt", "RELEASE_NOTES.md") {
+            if (-not (Test-Path "release-artifacts/$name")) {
+              throw "Missing release artifact release-artifacts/$name."
+            }
+          }
+          $manifest = Get-Content release-artifacts/latest.json -Raw | ConvertFrom-Json
+          if ($manifest.version -ne $env:VERSION) {
+            throw "latest.json version '$($manifest.version)' does not match release version '$env:VERSION'."
+          }
+          $platform = $manifest.platforms."windows-x86_64"
+          if (-not $platform) { throw "latest.json has no platforms.windows-x86_64 entry." }
+          if (-not $platform.signature) { throw "latest.json windows-x86_64 signature is empty." }
+          $expectedUrl = "https://github.com/${env:REPOSITORY}/releases/download/${env:TAG}/$installer"
+          if ($platform.url -ne $expectedUrl) {
+            throw "latest.json windows-x86_64 url '$($platform.url)' does not match expected '$expectedUrl'."
+          }
+          $checksumFiles = Get-ChildItem release-artifacts -File |
+            Where-Object { $_.Name -ne "SHA256SUMS.txt" }
+          $checksumLines = Get-Content release-artifacts/SHA256SUMS.txt
+          if ($checksumLines.Count -ne $checksumFiles.Count) {
+            throw "SHA256SUMS.txt has $($checksumLines.Count) lines for $($checksumFiles.Count) artifacts."
+          }
+
       - uses: actions/upload-artifact@v4
         with:
           name: lithemark-windows-x64
@@ -146,11 +200,8 @@ jobs:
           name: lithemark-windows-x64
           path: release-artifacts
 
-      - name: Create draft release
+      - name: Compose release notes
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ needs.build.outputs.tag }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           {
@@ -162,11 +213,75 @@ jobs:
             cat release-artifacts/SHA256SUMS.txt
             echo '```'
             echo
-            echo "Windows builds are unsigned; verify the checksums before installing."
+            echo "The updater artifact is cryptographically signed for Tauri update"
+            echo "verification. The Windows executable is not currently Authenticode"
+            echo "code-signed."
           } > notes.md
           rm release-artifacts/RELEASE_NOTES.md
+
+      - name: Check release does not already exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists; refusing to overwrite it. Delete the existing release first or re-run with publish=false." >&2
+            exit 1
+          fi
+
+      - name: Publish release
+        if: ${{ github.event_name == 'push' || inputs.publish == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.build.outputs.tag }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
           gh release create "$TAG" release-artifacts/* \
-            --draft \
             --verify-tag \
             --title "LitheMark $VERSION" \
             --notes-file notes.md
+
+      - name: Skip publication on manual build-only runs
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish != 'true' }}
+        run: echo "Manual build finished; skipping release publication (publish=false)."
+
+      - name: Verify published release
+        if: ${{ github.event_name == 'push' || inputs.publish == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          gh release view "$TAG" --json tagName,isDraft,isPrerelease,url \
+            | jq -e --arg tag "$TAG" '.tagName == $tag and .isDraft == false and .isPrerelease == false' >/dev/null \
+            || { echo "::error::Release $TAG is not a published, non-prerelease release." >&2; exit 1; }
+          echo "Release $TAG is published (not a draft, not a prerelease)."
+
+      - name: Verify updater manifest endpoint
+        if: ${{ github.event_name == 'push' || inputs.publish == 'true' }}
+        env:
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.build.outputs.tag }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          manifest_url="https://github.com/${GH_REPO}/releases/latest/download/latest.json"
+          expected_url="https://github.com/${GH_REPO}/releases/download/${TAG}/LitheMark_${VERSION}_x64-setup.exe"
+          ok=0
+          for attempt in $(seq 1 12); do
+            if curl -fsSL "$manifest_url" -o latest-published.json 2>/dev/null \
+              && jq -e --arg v "$VERSION" '.version == $v' latest-published.json >/dev/null \
+              && jq -e --arg u "$expected_url" '.platforms["windows-x86_64"].url == $u' latest-published.json >/dev/null \
+              && jq -e '.platforms["windows-x86_64"].signature | length > 0' latest-published.json >/dev/null; then
+              ok=1
+              break
+            fi
+            echo "Attempt $attempt: latest.json not ready yet; retrying in 10s..."
+            sleep 10
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "::error::Updater manifest at $manifest_url does not point at $expected_url for version $VERSION." >&2
+            exit 1
+          fi
+          echo "Updater manifest verified: version $VERSION at $expected_url."

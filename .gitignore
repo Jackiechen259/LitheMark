@@ -14,5 +14,8 @@ vite.config.ts.timestamp-*
 # worktree checkouts Claude Code creates under .claude/worktrees.
 .claude/
 
+# Reasonix working files: session attachments and local scratch.
+.reasonix/
+
 # Local implementation plan; never commit or publish it.
 AGENT_PLAN_LitheMark.md
