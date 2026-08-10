@@ -96,9 +96,9 @@ jobs:
           if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
             throw "TAURI_SIGNING_PRIVATE_KEY is not configured; updater artifacts cannot be signed. Add it as a repository secret and re-run."
           }
-          if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
-            throw "TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not configured; the signing key cannot be unlocked. Add it as a repository secret and re-run."
-          }
+          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD is optional: keys generated
+          # without a password do not need it, and Tauri itself fails with a
+          # clear error when a password-protected key is unlocked without it.
           pnpm desktop:bundle:windows
 
       - name: Collect artifacts and checksums

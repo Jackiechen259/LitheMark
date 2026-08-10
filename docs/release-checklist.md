@@ -92,7 +92,8 @@ The workflow then automatically:
 
 1. verifies the tag matches all three version files (fails immediately otherwise);
 2. reruns every quality gate (frontend format/type/test/build, Rust fmt/clippy/test);
-3. requires `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`;
+3. requires `TAURI_SIGNING_PRIVATE_KEY` (the key password is only needed when the key has
+   one);
 4. builds and signs the Windows NSIS bundle and the portable executable;
 5. generates `latest.json`, the detached `.sig`, and `SHA256SUMS.txt` and validates each
    artifact, including that `latest.json` carries the tag version and the correct installer
