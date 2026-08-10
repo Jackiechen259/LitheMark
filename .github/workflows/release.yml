@@ -116,6 +116,7 @@ jobs:
             if (-not (Test-Path "$nsis/$name")) { throw "Missing bundle artifact $nsis/$name." }
           }
           Copy-Item "$nsis/$installer" "release-artifacts/$installer"
+          Copy-Item "$nsis/$installer.sig" "release-artifacts/$installer.sig"
           Copy-Item "src-tauri/target/release/lithemark.exe" "release-artifacts/LitheMark_${env:VERSION}_x64.exe"
           # Hash everything before opening the output file: Get-ChildItem
           # streams, so writing SHA256SUMS.txt inside the same pipeline makes
