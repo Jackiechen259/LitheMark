@@ -7,6 +7,7 @@
 
   import ContextMenu from "../components/common/ContextMenu.svelte";
   import ErrorNotice from "../components/common/ErrorNotice.svelte";
+  import UnsavedChangesDialog from "../components/common/UnsavedChangesDialog.svelte";
   import UpdateNotice from "../components/common/UpdateNotice.svelte";
   import DocumentChangedNotice from "../components/document/DocumentChangedNotice.svelte";
   import DocumentLoading from "../components/document/DocumentLoading.svelte";
@@ -71,6 +72,7 @@
     type FieldElement,
   } from "./context-menu";
   import { handleShortcut } from "./shortcuts";
+  import type { UnsavedDecision } from "./unsaved-changes";
 
   const appState = new AppState();
   const updates = new UpdateController(tauriUpdateGateway);
@@ -99,6 +101,19 @@
   let editorWorkspace = $state<EditorWorkspace | null>(null);
   let allowWindowClose = false;
   let contextMenu = $state<{ x: number; y: number; entries: ContextMenuEntry[] } | null>(null);
+
+  type UnsavedPrompt = {
+    scope: "tab" | "app";
+    names: string[];
+  };
+
+  let unsavedPrompt = $state<UnsavedPrompt | null>(null);
+  let resolveUnsavedPrompt: ((decision: UnsavedDecision) => void) | null = null;
+  // Guards against duplicate close prompts: system close events can fire twice, and
+  // keyboard shortcuts like Ctrl+W must not stack a second prompt. Tasks 4/5 set/reset it
+  // around their close flows. Distinct from `allowWindowClose`, which lets the final
+  // `currentWindow.close()` pass through `onCloseRequested`.
+  let closeDecisionInFlight = false;
 
   const activeTab = $derived(appState.activeTab);
   const statusText = $derived(
@@ -325,6 +340,21 @@
     );
     if (saveFirst) return saveTab(tab);
     return window.confirm(t("confirm.discardBeforeAction", { name: tab.metadata.name }));
+  }
+
+  /** Open the unsaved-changes dialog and resolve with the user's choice. */
+  function requestUnsavedDecision(prompt: UnsavedPrompt): Promise<UnsavedDecision> {
+    return new Promise((resolve) => {
+      unsavedPrompt = prompt;
+      resolveUnsavedPrompt = resolve;
+    });
+  }
+
+  function finishUnsavedDecision(decision: UnsavedDecision) {
+    const resolve = resolveUnsavedPrompt;
+    unsavedPrompt = null;
+    resolveUnsavedPrompt = null;
+    resolve?.(decision);
   }
 
   async function toggleEditing() {
@@ -934,4 +964,31 @@
       onClose={() => (contextMenu = null)}
     />
   {/key}
+{/if}
+
+{#if unsavedPrompt}
+  {@const names = unsavedPrompt.names}
+  {@const scope = unsavedPrompt.scope}
+  {@const single = names.length === 1}
+  <UnsavedChangesDialog
+    open={true}
+    title={t("confirm.unsaved.title")}
+    message={scope === "app"
+      ? single
+        ? t("confirm.unsaved.app.single", { name: names[0] })
+        : t("confirm.unsaved.app.multiple", { count: names.length })
+      : t("confirm.unsaved.tab.message", { name: names[0] })}
+    saveLabel={scope === "app"
+      ? single
+        ? t("confirm.unsaved.saveAndExit")
+        : t("confirm.unsaved.saveAllAndExit")
+      : t("confirm.unsaved.save")}
+    discardLabel={scope === "app"
+      ? t("confirm.unsaved.exitWithoutSaving")
+      : t("confirm.unsaved.discard")}
+    cancelLabel={t("confirm.unsaved.cancel")}
+    onSave={() => finishUnsavedDecision("save")}
+    onDiscard={() => finishUnsavedDecision("discard")}
+    onCancel={() => finishUnsavedDecision("cancel")}
+  />
 {/if}
