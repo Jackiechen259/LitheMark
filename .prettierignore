@@ -6,3 +6,5 @@ src-tauri/target
 src-tauri/gen
 pnpm-lock.yaml
 AGENT_PLAN_LitheMark.md
+.superpowers
+.reasonix
