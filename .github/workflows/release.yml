@@ -101,7 +101,7 @@ jobs:
           # clear error when a password-protected key is unlocked without it.
           pnpm desktop:bundle:windows
 
-      - name: Collect artifacts and checksums
+      - name: Collect artifacts
         shell: pwsh
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -118,13 +118,6 @@ jobs:
           Copy-Item "$nsis/$installer" "release-artifacts/$installer"
           Copy-Item "$nsis/$installer.sig" "release-artifacts/$installer.sig"
           Copy-Item "src-tauri/target/release/lithemark.exe" "release-artifacts/LitheMark_${env:VERSION}_x64.exe"
-          # Hash everything before opening the output file: Get-ChildItem
-          # streams, so writing SHA256SUMS.txt inside the same pipeline makes
-          # the enumeration reach a file Out-File still holds open.
-          $checksums = Get-ChildItem release-artifacts -File |
-            Get-FileHash -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" }
-          $checksums | Out-File -FilePath release-artifacts/SHA256SUMS.txt -Encoding utf8
 
       - name: Generate release notes
         shell: pwsh
@@ -152,6 +145,17 @@ jobs:
               }
             }
           } | ConvertTo-Json -Depth 4 | Out-File release-artifacts/latest.json -Encoding utf8
+
+      - name: Generate checksums
+        shell: pwsh
+        run: |
+          # Hash everything before opening the output file: Get-ChildItem
+          # streams, so writing SHA256SUMS.txt inside the same pipeline makes
+          # the enumeration reach a file Out-File still holds open.
+          $checksums = Get-ChildItem release-artifacts -File |
+            Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" }
+          $checksums | Out-File -FilePath release-artifacts/SHA256SUMS.txt -Encoding utf8
 
       - name: Validate release artifacts
         shell: pwsh
