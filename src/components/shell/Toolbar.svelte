@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AppIcon from "../common/AppIcon.svelte";
   import type { Theme } from "../../features/documents/document-types";
   import { t } from "../../features/i18n/i18n.svelte";
 
@@ -40,7 +41,9 @@
 </script>
 
 <div class="toolbar">
-  <div class="brand-mark" aria-hidden="true">L</div>
+  <div class="brand-mark" aria-hidden="true">
+    <AppIcon size={32} />
+  </div>
   <div class="document-identity">
     <strong>{inSettings ? t("settings.title") : title}</strong>
     {#if !inSettings}

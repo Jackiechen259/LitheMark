@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getCurrentWindow, type Window as TauriWindow } from "@tauri-apps/api/window";
+  import AppIcon from "../common/AppIcon.svelte";
   import { t } from "../../features/i18n/i18n.svelte";
 
   // Browser / test hosts have no Tauri native window. Resolve it lazily so the chrome
@@ -100,6 +101,7 @@
 
 <div class="title-bar">
   <div class="title-bar-brand">
+    <AppIcon size={18} />
     <span class="title-bar-title">{t("app.name")}</span>
   </div>
   <div class="title-bar-drag-zone" aria-hidden="true" onmousedown={onDragZoneMouseDown}></div>

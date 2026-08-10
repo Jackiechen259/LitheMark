@@ -2,6 +2,7 @@
   import type { RecentFile } from "../../features/documents/document-types";
   import { activeLocale, t } from "../../features/i18n/i18n.svelte";
   import { formatRelativeTime } from "../../lib/format";
+  import AppIcon from "../common/AppIcon.svelte";
 
   let {
     recentFiles = [],
@@ -35,7 +36,9 @@
 <section class="home-view" aria-labelledby="home-title">
   <div class="home-grid">
     <div class="home-brand">
-      <div class="home-brand-mark" aria-hidden="true">L</div>
+      <div class="home-brand-mark" aria-hidden="true">
+        <AppIcon size={56} />
+      </div>
       <h1 id="home-title">{t("app.name")}</h1>
       <p class="home-tagline">{t("home.description")}</p>
       {#if onOpen}

@@ -103,15 +103,14 @@
   display: grid;
   width: 2rem;
   height: 2rem;
+  flex: none;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
-  border-radius: var(--radius-md);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
-  font-family: var(--font-content);
-  font-size: 1.05rem;
-  font-style: italic;
-  font-weight: 650;
+}
+
+.brand-mark img {
+  display: block;
+  width: 2rem;
+  height: 2rem;
 }
 
 .app-main {
