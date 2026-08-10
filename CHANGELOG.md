@@ -4,6 +4,8 @@ All notable changes to LitheMark are documented in this file.
 
 ## Unreleased
 
+## 0.1.2 - 2026-08-10
+
 ### Added
 
 - LitheMark's own context menu, with commands scoped to the surface under the pointer: tabs,
@@ -17,6 +19,8 @@ All notable changes to LitheMark are documented in this file.
 - The window, taskbar, installer, and webview icons are now LitheMark's own mark, an `M` whose
   right leg resolves into a downward arrow, drawn in the application's accent gradient. Every
   size is generated from [`app-icon.svg`](app-icon.svg), which replaces the default Tauri logo.
+- Tagged releases are now published automatically by the `Release` workflow instead of being
+  opened as drafts, so installed copies can update as soon as the tag is pushed.
 
 ## 0.1.1 - 2026-07-28
 
