@@ -4,6 +4,23 @@ All notable changes to LitheMark are documented in this file.
 
 ## Unreleased
 
+## 0.1.3 - 2026-08-15
+
+### Added
+
+- Windows Explorer integration: opening a `.md` or `.markdown` file from Explorer opens it in
+  LitheMark. When LitheMark is already running, the second launch forwards the files to the
+  existing window and brings it to the front instead of starting a duplicate process; on a cold
+  start the files are queued before the window exists, so no activation is ever lost to the
+  listener race.
+- An "Open with LitheMark" entry on the context menu of every Markdown file, registered by the
+  installer and removed on uninstall. It never overrides the user's chosen default application.
+- A Windows Integration settings section with an "Open Windows Default Apps" button, so
+  LitheMark can be made the default handler for Markdown files.
+- A launch that arrives with Explorer-opened files activates the tab already showing each file
+  instead of reopening it, and skips restoring the previous session's tabs so the files the user
+  asked for win.
+
 ## 0.1.2 - 2026-08-10
 
 ### Added
