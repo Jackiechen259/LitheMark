@@ -61,6 +61,24 @@ export class AppState {
     }
   }
 
+  /**
+   * Activate the tab already showing `path`, if any. Returns `true` when a tab
+   * matched, so callers can skip re-opening a file that is already open.
+   * Windows paths compare case-insensitively, and both plain (`C:\notes\a.md`)
+   * and verbatim (`\\?\C:\notes\a.md`) forms are normalized.
+   */
+  activateByPath(path: string): boolean {
+    const key = comparablePathKey(path);
+    const tab = this.tabs.find(
+      (candidate) => comparablePathKey(candidate.metadata.displayPath) === key,
+    );
+    if (tab) {
+      this.activeDocumentId = tab.documentId;
+      return true;
+    }
+    return false;
+  }
+
   close(documentId: string) {
     const index = this.tabs.findIndex((tab) => tab.documentId === documentId);
     if (index < 0) return;
@@ -118,4 +136,20 @@ export class AppState {
   closeSettings() {
     this.view = "documents";
   }
+}
+
+/**
+ * Normalizes a path for equality comparison. On Windows `std::fs::canonicalize`
+ * returns `\\?\` verbatim paths, so a tab's `displayPath` can carry the prefix
+ * while an Explorer activation does not; both spellings must match. Windows
+ * paths are case-insensitive and accept `/` and `\` interchangeably, so
+ * drive-letter and UNC forms are case-folded with separators normalized.
+ */
+function comparablePathKey(path: string): string {
+  let value = path;
+  if (value.startsWith("\\\\?\\UNC\\")) value = "\\\\" + value.slice(8);
+  else if (value.startsWith("\\\\?\\")) value = value.slice(4);
+  return /^[a-zA-Z]:[\\/]/.test(value) || value.startsWith("\\\\")
+    ? value.toLocaleLowerCase().replaceAll("/", "\\")
+    : value;
 }

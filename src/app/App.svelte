@@ -39,6 +39,7 @@
     reloadDocument,
     searchDocument,
     selectMarkdownFiles,
+    takePendingOpenPaths,
   } from "../features/documents/document-service";
   import type {
     AppPreferences,
@@ -114,6 +115,18 @@
   // around their close flows. Distinct from `allowWindowClose`, which lets the final
   // `currentWindow.close()` pass through `onCloseRequested`.
   let closeDecisionInFlight = false;
+  // Resolves once the startup pending-path pull has finished, so the tab-restore
+  // decision can wait for it: a launch that came with Explorer files skips restoring
+  // the previous session's tabs.
+  let hasStartupExternalPaths = false;
+  let resolveStartupExternal: ((has: boolean) => void) | undefined;
+  const startupExternalDecision = new Promise<boolean>((resolve) => {
+    resolveStartupExternal = resolve;
+  });
+  // The component-scope twin of the `disposed` flag inside onMount: async helpers
+  // started from onMount need it to drop their resources after unmount.
+  let externalActivationDisposed = false;
+  let stopExternalListener: UnlistenFn | undefined;
 
   const activeTab = $derived(appState.activeTab);
   const statusText = $derived(
@@ -255,8 +268,12 @@
       .catch(() => {
         // The browser test host has no Tauri app metadata.
       });
+    // Register the external-open-files listener and drain the pending queue before
+    // preferences decide about tab restore, so Explorer-launched files win over
+    // restoring the previous session.
+    void setupExternalActivation();
     void loadPreferences()
-      .then((loaded) => {
+      .then(async (loaded) => {
         preferences = loaded;
         if (!themeTouched) {
           themePreference = loaded.theme;
@@ -268,7 +285,8 @@
         setLocale(loaded.locale);
         // The only network request LitheMark makes, and only with consent.
         if (loaded.updateChecksEnabled) void updates.check({ silent: true });
-        if (loaded.restoreTabsOnLaunch) void restoreTabs(loaded.lastOpenPaths);
+        const hasExternal = await startupExternalDecision;
+        if (loaded.restoreTabsOnLaunch && !hasExternal) void restoreTabs(loaded.lastOpenPaths);
       })
       .catch(() => {
         // The reader remains fully usable when preferences are unavailable.
@@ -276,8 +294,10 @@
 
     return () => {
       disposed = true;
+      externalActivationDisposed = true;
       stopIndexListener?.();
       stopCloseListener?.();
+      stopExternalListener?.();
       window.clearInterval(changePoll);
       window.removeEventListener("keydown", listener);
       window.removeEventListener("contextmenu", contextMenuListener);
@@ -325,6 +345,52 @@
       showError(error);
     } finally {
       openingCount -= 1;
+    }
+  }
+
+  /**
+   * Cold-start bridge for Explorer activations. The listener is registered
+   * first, then the pending queue is drained: activations that raced ahead of
+   * the listener are still in the Rust-side queue, and anything arriving after
+   * the pull is delivered by the event. The result decides whether the launch
+   * counts as "came with files", which suppresses tab restore.
+   */
+  async function setupExternalActivation() {
+    try {
+      const unlisten = await listen<string[]>("external-open-files", (event) => {
+        void openExternalPaths(event.payload);
+      });
+      if (externalActivationDisposed) unlisten();
+      else stopExternalListener = unlisten;
+    } catch {
+      // The browser-only test environment has no Tauri event bus.
+    }
+
+    let pending: string[] = [];
+    try {
+      pending = await takePendingOpenPaths();
+    } catch {
+      pending = [];
+    }
+    hasStartupExternalPaths = pending.length > 0;
+    resolveStartupExternal?.(hasStartupExternalPaths);
+    if (pending.length) await openExternalPaths(pending);
+  }
+
+  /**
+   * Open files handed over by the OS (Explorer double-click, "Open with").
+   * Files already in a tab are only activated, never opened into a duplicate
+   * tab; everything else goes through the same `loadDocument` path as the
+   * toolbar, so tabs, recents and error handling behave identically.
+   */
+  async function openExternalPaths(paths: string[]) {
+    if (!paths.length) return;
+    // A file activation is a "show me the document" request, so leave the
+    // settings page if that is where the window currently is.
+    if (appState.view === "settings") appState.closeSettings();
+    for (const path of paths) {
+      if (appState.activateByPath(path)) continue;
+      await loadDocument(path);
     }
   }
 

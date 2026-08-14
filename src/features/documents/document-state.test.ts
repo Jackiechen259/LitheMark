@@ -148,4 +148,34 @@ describe("AppState", () => {
     expect(state.tabs[0].scrollTop).toBe(640);
     expect(state.tabs[0].status).toBe("ready");
   });
+
+  it("activates an open tab by path, case-insensitively on Windows-style paths", () => {
+    const state = new AppState();
+    state.open(result("one", "one.md"));
+    state.open(result("two", "two.md"));
+
+    expect(state.activateByPath("C:\\Docs\\ONE.MD")).toBe(true);
+    expect(state.activeDocumentId).toBe("one");
+    expect(state.activateByPath("C:/docs/two.md")).toBe(true);
+    expect(state.activeDocumentId).toBe("two");
+  });
+
+  it("matches verbatim \\\\?\\ display paths against plain activation paths", () => {
+    const state = new AppState();
+    const opened = result("one", "one.md");
+    opened.document.displayPath = "\\\\?\\C:\\docs\\one.md";
+    state.open(opened);
+
+    expect(state.activateByPath("C:\\docs\\one.md")).toBe(true);
+    expect(state.activeDocumentId).toBe("one");
+    expect(state.activateByPath("\\\\?\\C:\\DOCS\\one.md")).toBe(true);
+  });
+
+  it("does not activate a tab for a path that is not open", () => {
+    const state = new AppState();
+    state.open(result("one", "one.md"));
+
+    expect(state.activateByPath("C:\\docs\\missing.md")).toBe(false);
+    expect(state.activeDocumentId).toBe("one");
+  });
 });

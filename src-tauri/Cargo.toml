@@ -47,4 +47,5 @@ uuid = { version = "1", features = ["serde", "v4"] }
 
 # The updater ships only with the desktop bundles that LitheMark actually releases.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"

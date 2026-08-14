@@ -156,3 +156,17 @@ export function discardEdit(documentId: string): Promise<void> {
 export function openExternalUrl(url: string): Promise<void> {
   return invoke("open_external_url", { url });
 }
+
+/**
+ * Drains the Markdown files the OS passed to this launch before the webview
+ * listener was ready. Called once at startup, after registering the
+ * `external-open-files` listener, so a cold start never loses a file.
+ */
+export function takePendingOpenPaths(): Promise<string[]> {
+  return invoke<string[]>("take_pending_open_paths");
+}
+
+/** Opens the Windows "Default apps" settings page (ms-settings:defaultapps). */
+export function openDefaultAppsSettings(): Promise<void> {
+  return invoke("open_default_apps_settings");
+}

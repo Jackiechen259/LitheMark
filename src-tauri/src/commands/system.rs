@@ -12,6 +12,27 @@ pub fn open_external_url(app: AppHandle, url: String) -> Result<(), AppError> {
         .map_err(|_| AppError::Internal)
 }
 
+/// Opens the Windows "Default apps" settings page. The URI is hard-coded so
+/// the frontend never gets to pick a `ms-settings:` target, and the generic
+/// `open_external_url` allowlist (`https` / `http` / `mailto`) stays closed to
+/// system URIs like `shell:`, `file:` or custom protocols.
+#[tauri::command]
+pub fn open_default_apps_settings(app: AppHandle) -> Result<(), AppError> {
+    #[cfg(target_os = "windows")]
+    {
+        app.opener()
+            .open_url("ms-settings:defaultapps", None::<&str>)
+            .map_err(|_| AppError::Internal)
+    }
+    // The settings entry is only rendered on Windows; on other platforms this
+    // command is unreachable and failing closed is safer than a silent no-op.
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        Err(AppError::Internal)
+    }
+}
+
 fn validate_external_url(value: &str) -> Result<(), AppError> {
     let parsed = Url::parse(value).map_err(|_| AppError::ExternalUrlDenied)?;
 

@@ -36,6 +36,8 @@ const service = vi.hoisted(() => ({
   loadLocalAsset: vi.fn(),
   checkDocumentChange: vi.fn(),
   openExternalUrl: vi.fn(),
+  openDefaultAppsSettings: vi.fn(),
+  takePendingOpenPaths: vi.fn(),
   beginEdit: vi.fn(),
   getEditorChunk: vi.fn(),
   applyEditBatch: vi.fn(),
@@ -60,6 +62,14 @@ const nativeWindow = vi.hoisted(() => ({
   close: vi.fn(),
   closeHandler: undefined as ((event: { preventDefault: () => void }) => Promise<void>) | undefined,
 }));
+// Captures Tauri event listeners so tests can emit a real `external-open-files` event.
+const events = vi.hoisted(() => ({
+  handlers: {} as Record<string, (event: { payload: unknown }) => void>,
+  listen: vi.fn(),
+  emit: (name: string, payload: unknown) => {
+    events.handlers[name]?.({ payload });
+  },
+}));
 
 vi.mock("../features/documents/document-service", () => service);
 vi.mock("../features/settings/settings-service", async (importOriginal) => {
@@ -74,7 +84,7 @@ vi.mock("../features/settings/settings-service", async (importOriginal) => {
 });
 vi.mock("../features/updates/update-service", () => updates);
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn().mockResolvedValue(vi.fn()),
+  listen: events.listen,
 }));
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
@@ -227,6 +237,14 @@ describe("App", () => {
       changed: false,
       fingerprint: "same",
     });
+    service.takePendingOpenPaths.mockResolvedValue([]);
+    events.listen.mockImplementation(
+      async (name: string, handler: (event: { payload: unknown }) => void) => {
+        events.handlers[name] = handler;
+        return vi.fn();
+      },
+    );
+    events.handlers = {};
     nativeWindow.close.mockReset();
     nativeWindow.closeHandler = undefined;
   });
@@ -624,5 +642,83 @@ describe("App", () => {
     expect(preventDefault).toHaveBeenCalledOnce();
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     await waitFor(() => expect(nativeWindow.close).toHaveBeenCalledOnce());
+  });
+
+  it("opens files passed on the command line at cold launch", async () => {
+    service.takePendingOpenPaths.mockResolvedValue(["C:\\notes\\launch.md"]);
+    service.openDocument.mockResolvedValue(openResult("doc-launch", "launch.md"));
+
+    render(App);
+
+    expect(await screen.findByRole("heading", { name: "Hello" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "launch.md" })).toHaveAttribute("aria-selected", "true");
+    expect(service.openDocument).toHaveBeenCalledWith("C:\\notes\\launch.md");
+  });
+
+  it("opens a file delivered by external-open-files while the app is running", async () => {
+    service.selectMarkdownFiles.mockResolvedValue(["C:\\notes\\a.md"]);
+    service.openDocument
+      .mockResolvedValueOnce(openResult("doc-a", "a.md"))
+      .mockResolvedValueOnce(openResult("doc-b", "b.md"));
+
+    render(App);
+    await fireEvent.click(screen.getByRole("button", { name: "Open file" }));
+    await screen.findByRole("heading", { name: "Hello" });
+
+    events.emit("external-open-files", ["C:\\notes\\b.md"]);
+
+    // The new file becomes the active tab without clearing the existing one.
+    expect(await screen.findByRole("tab", { name: "b.md" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "a.md" })).toBeVisible();
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
+  });
+
+  it("activates the existing tab instead of duplicating an already-open file", async () => {
+    service.takePendingOpenPaths.mockResolvedValue(["C:\\notes\\dup.md"]);
+    service.openDocument.mockResolvedValue(openResult("doc-dup", "dup.md"));
+
+    render(App);
+    await screen.findByRole("tab", { name: "dup.md" });
+    expect(service.openDocument).toHaveBeenCalledTimes(1);
+
+    // The same file arrives again under different casing, as Windows may report it.
+    events.emit("external-open-files", ["C:\\notes\\DUP.MD"]);
+
+    await waitFor(() => expect(service.openDocument).toHaveBeenCalledTimes(1));
+    expect(screen.getAllByRole("tab")).toHaveLength(1);
+    expect(screen.getByRole("tab", { name: "dup.md" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("skips restoring previous tabs when launch came with external files", async () => {
+    preferences.loadPreferences.mockResolvedValue({
+      ...PREFERENCE_DEFAULTS,
+      restoreTabsOnLaunch: true,
+      lastOpenPaths: ["C:\\notes\\old.md"],
+    });
+    service.takePendingOpenPaths.mockResolvedValue(["C:\\notes\\new.md"]);
+    service.openDocument.mockResolvedValue(openResult("doc-new", "new.md"));
+
+    render(App);
+
+    expect(await screen.findByRole("tab", { name: "new.md" })).toBeVisible();
+    await waitFor(() => expect(service.openDocument).not.toHaveBeenCalledWith("C:\\notes\\old.md"));
+    expect(screen.queryByRole("tab", { name: "old.md" })).not.toBeInTheDocument();
+  });
+
+  it("restores previous tabs when no external file started the app", async () => {
+    preferences.loadPreferences.mockResolvedValue({
+      ...PREFERENCE_DEFAULTS,
+      restoreTabsOnLaunch: true,
+      lastOpenPaths: ["C:\\notes\\old.md"],
+    });
+    service.openDocument.mockResolvedValue(openResult("doc-old", "old.md"));
+
+    render(App);
+
+    expect(await screen.findByRole("tab", { name: "old.md" })).toBeVisible();
+    expect(service.openDocument).toHaveBeenCalledWith("C:\\notes\\old.md");
   });
 });

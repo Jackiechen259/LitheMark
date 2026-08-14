@@ -4,6 +4,7 @@
   import { appConfigDir } from "@tauri-apps/api/path";
 
   import { activeLocale, t } from "../../features/i18n/i18n.svelte";
+  import { openDefaultAppsSettings } from "../../features/documents/document-service";
   import type {
     AppPreferences,
     ContentFont,
@@ -34,9 +35,14 @@
 
   const locale = $derived(activeLocale());
 
+  // WebView2 reports a Windows user agent ("Windows NT 10.0 ..."); the section
+  // is meaningless on other platforms and stays hidden there.
+  const isWindows = $derived(/Windows|Win32|Win64/i.test(navigator.userAgent));
+
   const sections = $derived([
     { id: "appearance", label: t("settings.appearance.title") },
     { id: "behavior", label: t("settings.behavior.title") },
+    ...(isWindows ? [{ id: "windows", label: t("settings.windows.title") }] : []),
     { id: "recent", label: t("settings.recent.title") },
     { id: "updates", label: t("settings.updates.title") },
     { id: "about", label: t("settings.about.title") },
@@ -260,6 +266,24 @@
         />
       </SettingsRow>
     </section>
+
+    {#if isWindows}
+      <section id="settings-section-windows" class="settings-section">
+        <h2>{t("settings.windows.title")}</h2>
+        <SettingsRow
+          label={t("settings.windows.defaultApp")}
+          description={t("settings.windows.defaultAppHint")}
+        >
+          <button
+            type="button"
+            class="secondary-button"
+            onclick={() => void openDefaultAppsSettings()}
+          >
+            {t("settings.windows.openDefaultApps")}
+          </button>
+        </SettingsRow>
+      </section>
+    {/if}
 
     <section id="settings-section-recent" class="settings-section">
       <div class="settings-section-header">
